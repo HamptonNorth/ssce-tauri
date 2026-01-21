@@ -22,7 +22,7 @@ const MORE_TOOLS = ["cut", "crop", "steps", "symbols", "combine", "highlight", "
  * @param {Object} handlers - Object containing all handler functions
  */
 export function initToolbarEvents(handlers) {
-  const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, toggleSaveToDefault, setSaveDirectory, handleUndo, handleRedo, showResizeDialog, handleFileSelect } = handlers;
+  const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, toggleSaveToDefault, handleUndo, handleRedo, showResizeDialog, handleFileSelect } = handlers;
 
   // File dropdown menu
   const fileMenuBtn = document.getElementById("file-menu-btn");
@@ -82,9 +82,11 @@ export function initToolbarEvents(handlers) {
     fileMenu.classList.add("hidden");
   });
 
-  document.getElementById("menu-set-save-dir").addEventListener("click", () => {
+  document.getElementById("menu-set-save-dir").addEventListener("click", async () => {
     fileMenu.classList.add("hidden");
-    setSaveDirectory();
+    // Switch save directory to Downloads
+    const { useSaveToDownloads } = await import("../file-operations.js");
+    await useSaveToDownloads();
   });
 
   // .ssce file format menu items

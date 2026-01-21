@@ -1,24 +1,14 @@
 /**
  * File Operations
- * Handles file browsing, loading, saving, and undo/redo
+ * Handles file loading, saving, and undo/redo
+ *
+ * Uses native Tauri dialogs when available, falls back to system file input.
  */
 
 import { state, modules, persistState } from "./state.js";
-import { saveImage, saveImageAs } from "./utils/export.js";
 import { showAlertModal, showConfirmModal } from "./ui/dialogs/index.js";
 import { showToast } from "./utils/toast.js";
-
-// ============================================================================
-// Browse State
-// ============================================================================
-
-// Current browse state
-const browseState = {
-  currentDir: "",
-  selectedFile: null,
-  directoryMode: false,
-  filter: "all", // "all", "ssce", "images"
-};
+import * as bridge from "./tauri-bridge.js";
 
 // ============================================================================
 // File Operations
@@ -40,6 +30,7 @@ export async function newCanvas(updateStatusBar) {
 
   // Clear filename state
   state.filename = null;
+  state.currentFilePath = null;
   state.hasUnsavedChanges = false;
 
   // Update status bar
@@ -49,288 +40,146 @@ export async function newCanvas(updateStatusBar) {
 }
 
 /**
- * Open file dialog - shows custom browser first if default path is configured
+ * Open file dialog - uses native Tauri dialog or falls back to system file input
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
-export function openFile() {
-  if (state.config?.defaultPathImageLoad) {
-    showBrowseDialog();
+export async function openFile(updateStatusBar) {
+  if (bridge.isTauri()) {
+    await openFileNative(updateStatusBar);
   } else {
+    // Fallback to system file input
     document.getElementById("file-input").click();
   }
 }
 
 /**
- * Show the file browser dialog
- * @param {boolean} directoryMode - If true, allows selecting directories instead of files
+ * Open file using native Tauri dialog
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
-async function showBrowseDialog(directoryMode = false) {
-  const dialog = document.getElementById("dialog-browse");
-  browseState.selectedFile = null;
-  browseState.directoryMode = directoryMode;
-
-  // Update dialog title
-  const titleEl = dialog.querySelector("h2");
-  if (titleEl) {
-    titleEl.textContent = directoryMode ? "Select Save Directory" : "Open Image";
-  }
-
-  // Show/hide appropriate buttons
-  const openBtn = document.getElementById("browse-open");
-  const selectDirBtn = document.getElementById("browse-select-dir");
-  if (directoryMode) {
-    openBtn.classList.add("hidden");
-    selectDirBtn.classList.remove("hidden");
-  } else {
-    openBtn.classList.remove("hidden");
-    selectDirBtn.classList.add("hidden");
-  }
-
-  updateBrowseOpenButton();
-
-  // Load default directory
-  const defaultDir = directoryMode ? state.customSaveDirectory || state.config?.defaultPathImageSave || state.config?.defaultPathImageLoad || "" : state.config?.defaultPathImageLoad || "";
-  await browseDirectory(defaultDir);
-
-  dialog.showModal();
-}
-
-/**
- * Browse a directory and update the file list
- */
-async function browseDirectory(dir) {
-  const listEl = document.getElementById("browse-list");
-  listEl.innerHTML = '<div class="p-4 text-gray-500">Loading...</div>';
-
+async function openFileNative(updateStatusBar) {
   try {
-    const params = new URLSearchParams();
-    if (dir) params.set("dir", dir);
-    if (browseState.filter) params.set("filter", browseState.filter);
-    const url = `/api/browse?${params.toString()}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!data.success) {
-      listEl.innerHTML = `<div class="p-4 text-red-400">${data.error}</div>`;
-      return;
-    }
-
-    browseState.currentDir = data.currentDir;
-    document.getElementById("browse-path").textContent = data.currentDir;
-
-    // Build file list HTML
-    let html = "";
-
-    // Directories first
-    for (const dir of data.directories) {
-      html += `
-                <div class="browse-item browse-dir flex items-center gap-2 px-3 py-2 hover:bg-gray-800 cursor-pointer"
-                     data-path="${escapeHtml(dir.path)}">
-                    <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
-                    </svg>
-                    <span>${escapeHtml(dir.name)}</span>
-                </div>
-            `;
-    }
-
-    // Then files
-    for (const file of data.files) {
-      html += `
-                <div class="browse-item browse-file flex items-center gap-2 px-3 py-2 hover:bg-gray-800 cursor-pointer"
-                     data-path="${escapeHtml(file.path)}" data-name="${escapeHtml(file.name)}">
-                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
-                    <span>${escapeHtml(file.name)}</span>
-                </div>
-            `;
-    }
-
-    if (!data.directories.length && !data.files.length) {
-      html = '<div class="p-4 text-gray-500">No images found in this directory</div>';
-    }
-
-    listEl.innerHTML = html;
-
-    // Add click handlers
-    listEl.querySelectorAll(".browse-dir").forEach((el) => {
-      el.addEventListener("click", () => browseDirectory(el.dataset.path));
+    const filePath = await bridge.showOpenDialog({
+      title: "Open Image",
+      filters: [
+        { name: "All Supported", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ssce"] },
+        { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] },
+        { name: "SSCE Files", extensions: ["ssce"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
     });
 
-    listEl.querySelectorAll(".browse-file").forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        selectBrowseFile(el);
-      });
-      el.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        selectBrowseFile(el);
-        openBrowseSelected();
-      });
-    });
+    if (!filePath) return; // User cancelled
+
+    await loadFileFromPath(filePath, updateStatusBar);
   } catch (err) {
-    listEl.innerHTML = `<div class="p-4 text-red-400">Error: ${err.message}</div>`;
+    console.error("Open file error:", err);
+    await showAlertModal("Open Failed", `Could not open file.\n\nError: ${err.message}`, "error");
   }
 }
 
 /**
- * Select a file in the browser
+ * Load a file from a given path (Tauri only)
+ * @param {string} filePath - Full path to file
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
-function selectBrowseFile(el) {
-  // Remove selection from others
-  document.querySelectorAll(".browse-file").forEach((item) => {
-    item.classList.remove("bg-blue-600");
-  });
-
-  // Select this one
-  el.classList.add("bg-blue-600");
-  browseState.selectedFile = {
-    path: el.dataset.path,
-    name: el.dataset.name,
-  };
-
-  // Update selected file display
-  const selectedEl = document.getElementById("browse-selected");
-  if (selectedEl) {
-    selectedEl.textContent = browseState.selectedFile.name;
-  }
-
-  updateBrowseOpenButton();
-}
-
-/**
- * Update the Open button state
- */
-function updateBrowseOpenButton() {
-  const btn = document.getElementById("browse-open");
-  if (btn) {
-    btn.disabled = !browseState.selectedFile;
-  }
-}
-
-/**
- * Open the selected file from browser
- */
-export async function openBrowseSelected(updateStatusBar) {
-  if (!browseState.selectedFile) return;
-
-  const dialog = document.getElementById("dialog-browse");
-  dialog.close();
-
-  const filePath = browseState.selectedFile.path;
-  const isSsceFile = filePath.toLowerCase().endsWith(".ssce");
+async function loadFileFromPath(filePath, updateStatusBar) {
+  const isSsce = bridge.isSsceFile(filePath);
 
   try {
-    if (isSsceFile) {
-      // Load .ssce file via dedicated endpoint
-      const { loadSsceFile } = await import("./ssce-file-ops.js");
-      const result = await loadSsceFile(filePath, updateStatusBar);
-      if (!result.success) {
-        await showAlertModal("Load Failed", `Unable to load the .ssce file.\n\nError: ${result.error || "Unknown error"}`, "error");
-      }
+    if (isSsce) {
+      // Load .ssce file
+      const jsonString = await bridge.loadSsce(filePath);
+      const { deserialize } = await import("./utils/ssce-format.js");
+      const sessionData = await deserialize(jsonString);
+
+      // Clear current state
+      modules.layerManager.clear();
+
+      // Restore canvas size
+      modules.canvasManager.setSize(sessionData.canvasSize.width, sessionData.canvasSize.height);
+
+      // Restore layers
+      modules.layerManager.layers = sessionData.layers;
+
+      // Reset layer ID counter
+      const maxId = Math.max(...sessionData.layers.map((l) => l.id), 0);
+      modules.layerManager.nextId = maxId + 1;
+
+      // Restore front matter and snapshots
+      state.frontMatter = sessionData.frontMatter;
+      state.snapshots = sessionData.snapshots;
+
+      // Update file state
+      state.filename = bridge.getFilename(filePath);
+      state.currentFilePath = filePath;
+      state.hasUnsavedChanges = false;
+      state.sourceFormat = "ssce";
+
+      // Render
+      modules.canvasManager.render();
+
+      // Update zoom
+      const zoom = await import("./utils/zoom.js");
+      zoom.recalculateZoom(true);
+
+      // Update View Snapshots button
+      const dialogs = await import("./ui/dialogs/index.js");
+      dialogs.updateViewSnapshotsButton();
+
+      showToast(`Loaded: ${state.filename}`, "success");
     } else {
-      // Load standard image file
-      const response = await fetch(`/api/load?path=${encodeURIComponent(filePath)}`);
-      const data = await response.json();
+      // Load image file
+      const dataUrl = await bridge.loadImage(filePath);
 
-      if (data.success && data.data) {
-        const img = new Image();
-        img.onload = () => {
-          modules.layerManager.clear();
-          modules.layerManager.addImageLayer(img);
-          state.filename = data.filename;
-          state.hasUnsavedChanges = false;
-          updateStatusBar();
-          modules.canvasManager.render();
+      const img = new Image();
+      img.onload = async () => {
+        modules.layerManager.clear();
+        modules.layerManager.addImageLayer(img);
 
-          // Auto-fit large images and update zoom button
-          import("./utils/zoom.js").then((zoom) => {
-            zoom.recalculateZoom(true);
-          });
-        };
-        img.src = data.data;
-      } else {
-        await showAlertModal("Load Failed", "Unable to load the image file.\n\nError: " + (data.error || "Unknown error"), "error");
-      }
+        state.filename = bridge.getFilename(filePath);
+        state.currentFilePath = filePath;
+        state.hasUnsavedChanges = false;
+        state.sourceFormat = "image";
+
+        modules.canvasManager.render();
+
+        // Auto-fit and update zoom
+        const zoom = await import("./utils/zoom.js");
+        zoom.recalculateZoom(true);
+
+        showToast(`Loaded: ${state.filename}`, "success");
+
+        if (updateStatusBar) updateStatusBar();
+      };
+      img.onerror = async () => {
+        await showAlertModal("Invalid Image", `The file could not be loaded as an image.\n\nIt may be corrupted or not a valid image format.`, "error");
+      };
+      img.src = dataUrl;
     }
+
+    if (updateStatusBar) updateStatusBar();
   } catch (err) {
-    await showAlertModal("Load Failed", "Unable to load the file.\n\nError: " + err.message, "error");
+    console.error("Load file error:", err);
+    await showAlertModal("Load Failed", `Could not load the file.\n\nError: ${err.message}`, "error");
   }
 }
 
 /**
- * Select the current directory in directory mode
+ * Handle file selection from system file input (fallback for non-Tauri)
+ * @param {Event} e - File input change event
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
-export function selectCurrentDirectory(updateStatusBar) {
-  if (!browseState.currentDir) return;
-
-  const dialog = document.getElementById("dialog-browse");
-  dialog.close();
-
-  // Save the selected directory
-  state.customSaveDirectory = browseState.currentDir;
-  persistState("customSaveDirectory", browseState.currentDir);
-
-  // Enable save to default if not already enabled
-  if (!state.saveToDefault) {
-    state.saveToDefault = true;
-    persistState("saveToDefault", "true");
-
-    const checkMark = document.getElementById("save-to-default-check");
-    const uncheckMark = document.getElementById("save-to-default-uncheck");
-    if (checkMark) checkMark.classList.remove("hidden");
-    if (uncheckMark) uncheckMark.classList.add("hidden");
-  }
-
-  updateStatusBar();
-}
-
-/**
- * Set the file type filter for browsing
- * @param {string} filter - "all", "ssce", or "images"
- */
-export function setBrowseFilter(filter) {
-  browseState.filter = filter;
-}
-
-/**
- * Browse directory (exported for dialog use)
- */
-export function browseTo(dir) {
-  return browseDirectory(dir);
-}
-
-/**
- * Show browse dialog for directory selection
- */
-export function setSaveDirectory() {
-  showBrowseDialog(true);
-}
-
-/**
- * Escape HTML for safe insertion
- */
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-/**
- * Handle file selection from system file input
- */
-export function handleFileSelect(e) {
+export function handleFileSelect(e, updateStatusBar) {
   const file = e.target.files[0];
   if (!file) return;
 
-  loadImageFile(file);
+  loadImageFile(file, updateStatusBar);
 }
 
 /**
- * Load an image file or .ssce file into the canvas
+ * Load an image file or .ssce file into the canvas (from File object)
+ * @param {File} file - File object from file input or drag-drop
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
 export function loadImageFile(file, updateStatusBar) {
   // Check if this is an .ssce file
@@ -348,11 +197,14 @@ export function loadImageFile(file, updateStatusBar) {
       modules.layerManager.clear();
       modules.layerManager.addImageLayer(img);
       state.filename = file.name;
+      state.currentFilePath = null; // No path for File objects
       state.hasUnsavedChanges = false;
+      state.sourceFormat = "image";
+
       if (updateStatusBar) updateStatusBar();
       modules.canvasManager.render();
 
-      // Auto-fit large images and update zoom button
+      // Auto-fit large images
       import("./utils/zoom.js").then((zoom) => {
         zoom.recalculateZoom(true);
       });
@@ -371,7 +223,9 @@ export function loadImageFile(file, updateStatusBar) {
 }
 
 /**
- * Load .ssce file from File object (via system file picker)
+ * Load .ssce file from File object (via system file picker or drag-drop)
+ * @param {File} file - File object
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
 async function loadSsceFromFile(file, updateStatusBar) {
   const reader = new FileReader();
@@ -380,9 +234,7 @@ async function loadSsceFromFile(file, updateStatusBar) {
     try {
       const jsonString = e.target.result;
       const { deserialize } = await import("./utils/ssce-format.js");
-      const { initSsceSession } = await import("./ssce-file-ops.js");
 
-      // Deserialize JSON to layers
       const sessionData = await deserialize(jsonString);
 
       // Clear current state
@@ -391,33 +243,35 @@ async function loadSsceFromFile(file, updateStatusBar) {
       // Restore canvas size
       modules.canvasManager.setSize(sessionData.canvasSize.width, sessionData.canvasSize.height);
 
-      // Restore layers (directly set, don't use addLayer to avoid undo stack)
+      // Restore layers
       modules.layerManager.layers = sessionData.layers;
 
-      // Reset layer ID counter to max ID + 1
+      // Reset layer ID counter
       const maxId = Math.max(...sessionData.layers.map((l) => l.id), 0);
       modules.layerManager.nextId = maxId + 1;
 
-      // Restore front matter and snapshots to state
+      // Restore front matter and snapshots
       state.frontMatter = sessionData.frontMatter;
       state.snapshots = sessionData.snapshots;
 
       // Update file state
       state.filename = file.name;
+      state.currentFilePath = null;
       state.hasUnsavedChanges = false;
+      state.sourceFormat = "ssce";
 
       // Render
       modules.canvasManager.render();
 
       // Update zoom
-      import("./utils/zoom.js").then((zoom) => {
-        zoom.recalculateZoom(true);
-      });
+      const zoom = await import("./utils/zoom.js");
+      zoom.recalculateZoom(true);
 
-      // Update status bar
-      if (updateStatusBar) {
-        updateStatusBar();
-      }
+      // Update View Snapshots button
+      const dialogs = await import("./ui/dialogs/index.js");
+      dialogs.updateViewSnapshotsButton();
+
+      if (updateStatusBar) updateStatusBar();
 
       showToast(`Loaded: ${file.name}`, "success");
     } catch (err) {
@@ -434,35 +288,9 @@ async function loadSsceFromFile(file, updateStatusBar) {
 }
 
 /**
- * Load initial image from server (if provided via command line)
- */
-export async function loadInitialImage(updateStatusBar) {
-  try {
-    const response = await fetch("/api/image");
-    const data = await response.json();
-
-    if (data.loaded && data.data) {
-      const img = new Image();
-      img.onload = () => {
-        modules.layerManager.addImageLayer(img);
-        state.filename = data.filename;
-        updateStatusBar();
-        modules.canvasManager.render();
-
-        // Auto-fit large images and update zoom button
-        import("./utils/zoom.js").then((zoom) => {
-          zoom.recalculateZoom(true);
-        });
-      };
-      img.src = data.data;
-    }
-  } catch (err) {
-    console.log("SSCE: No initial image to load");
-  }
-}
-
-/**
  * Handle save button click
+ * @param {Function} handleSaveAs - Function to call for Save As
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
 export async function handleSave(handleSaveAs, updateStatusBar) {
   if (!modules.layerManager.hasLayers()) {
@@ -470,35 +298,168 @@ export async function handleSave(handleSaveAs, updateStatusBar) {
     return;
   }
 
-  // If save to default is enabled, force Save As behavior
-  if (state.saveToDefault) {
-    handleSaveAs();
-    return;
+  // If we have a current file path and it's not an ssce file being saved as image, save directly
+  if (state.currentFilePath && bridge.isTauri()) {
+    try {
+      const imageData = modules.canvasManager.toDataURL();
+      await bridge.saveImage(state.currentFilePath, imageData);
+
+      state.hasUnsavedChanges = false;
+      showToast(`Saved: ${state.filename}`, "success");
+      if (updateStatusBar) updateStatusBar();
+      return;
+    } catch (err) {
+      console.error("Save error:", err);
+      await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
+      return;
+    }
   }
 
-  const imageData = modules.canvasManager.toDataURL();
-  const result = await saveImage(imageData);
-
-  if (result.success) {
-    state.filename = result.filename;
-    state.hasUnsavedChanges = false;
-    updateStatusBar();
-  }
+  // Otherwise, do Save As
+  handleSaveAs();
 }
 
 /**
- * Handle save as button click
+ * Handle save as - shows native save dialog
+ * @param {Function} updateStatusBar - Callback to update status bar
  */
-export async function handleSaveAs(showSaveAsDialog) {
+export async function handleSaveAs(updateStatusBar) {
   if (!modules.layerManager.hasLayers()) {
     await showAlertModal("Nothing to Save", "Open or create an image first before saving.", "info");
     return;
   }
-  showSaveAsDialog();
+
+  if (bridge.isTauri()) {
+    await saveAsNative(updateStatusBar);
+  } else {
+    // Fallback: download via browser
+    const imageData = modules.canvasManager.toDataURL();
+    const { downloadImage } = await import("./utils/export.js");
+    downloadImage(imageData, state.filename || "screenshot.png");
+  }
+}
+
+/**
+ * Save file using native Tauri dialog
+ * @param {Function} updateStatusBar - Callback to update status bar
+ */
+async function saveAsNative(updateStatusBar) {
+  try {
+    // Determine default filename
+    let defaultName = state.filename || "screenshot.png";
+    // Ensure .png extension for images
+    if (!defaultName.toLowerCase().endsWith(".png") && !defaultName.toLowerCase().endsWith(".ssce")) {
+      defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".png";
+    }
+
+    const filePath = await bridge.showSaveDialog({
+      title: "Save Image As",
+      defaultName,
+      filters: [
+        { name: "PNG Image", extensions: ["png"] },
+        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    });
+
+    if (!filePath) return; // User cancelled
+
+    // Get image data with appropriate format
+    const ext = bridge.getExtension(filePath);
+    let imageData;
+    if (ext === "jpg" || ext === "jpeg") {
+      imageData = modules.canvasManager.toDataURL("image/jpeg", 0.92);
+    } else {
+      imageData = modules.canvasManager.toDataURL("image/png");
+    }
+
+    await bridge.saveImage(filePath, imageData);
+
+    // Update state
+    state.filename = bridge.getFilename(filePath);
+    state.currentFilePath = filePath;
+    state.hasUnsavedChanges = false;
+
+    showToast(`Saved: ${state.filename}`, "success");
+    if (updateStatusBar) updateStatusBar();
+  } catch (err) {
+    console.error("Save as error:", err);
+    await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
+  }
+}
+
+/**
+ * Save as SSCE file using native dialog
+ * @param {Object} options - Save options
+ * @param {Object} options.frontMatter - Front matter metadata
+ * @param {Function} updateStatusBar - Callback to update status bar
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function saveAsSsce(options = {}, updateStatusBar) {
+  if (!modules.layerManager.hasLayers()) {
+    await showAlertModal("Nothing to Save", "Open or create an image first before saving.", "info");
+    return { success: false, error: "No content" };
+  }
+
+  if (!bridge.isTauri()) {
+    return { success: false, error: "SSCE save requires Tauri" };
+  }
+
+  try {
+    // Determine default filename
+    let defaultName = state.filename || "screenshot.ssce";
+    if (!defaultName.toLowerCase().endsWith(".ssce")) {
+      defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".ssce";
+    }
+
+    const filePath = await bridge.showSaveDialog({
+      title: "Save SSCE File",
+      defaultName,
+      filters: [
+        { name: "SSCE Files", extensions: ["ssce"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    });
+
+    if (!filePath) return { success: false, error: "Cancelled" };
+
+    // Serialize session data
+    const { serialize } = await import("./utils/ssce-format.js");
+
+    const layers = modules.layerManager.getLayers();
+    const canvasSize = modules.canvasManager.getSize();
+    const frontMatter = {
+      ...(state.frontMatter || {}),
+      ...(options.frontMatter || {}),
+      modified: new Date().toISOString(),
+    };
+    const snapshots = state.snapshots || [];
+
+    const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots });
+
+    await bridge.saveSsce(filePath, ssceData);
+
+    // Update state
+    state.filename = bridge.getFilename(filePath);
+    state.currentFilePath = filePath;
+    state.hasUnsavedChanges = false;
+    state.frontMatter = frontMatter;
+    state.sourceFormat = "ssce";
+
+    showToast(`Saved: ${state.filename}`, "success");
+    if (updateStatusBar) updateStatusBar();
+
+    return { success: true };
+  } catch (err) {
+    console.error("Save SSCE error:", err);
+    await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
+    return { success: false, error: err.message };
+  }
 }
 
 /**
  * Handle print button click
+ * @param {Function} showPrintDialog - Function to show print dialog
  */
 export async function handlePrint(showPrintDialog) {
   if (!modules.layerManager.hasLayers()) {
@@ -506,6 +467,34 @@ export async function handlePrint(showPrintDialog) {
     return;
   }
   showPrintDialog();
+}
+
+/**
+ * Switch save directory to Downloads
+ */
+export async function useSaveToDownloads() {
+  const downloads = await bridge.useDownloadsDir();
+  showToast(`Save directory: Downloads`, "info");
+  return downloads;
+}
+
+/**
+ * Get current save directory
+ * @returns {Promise<string>}
+ */
+export async function getSaveDirectory() {
+  return bridge.getSaveDirectory();
+}
+
+/**
+ * Set directory configuration from config
+ * @param {Object} config - Config object with defaultOpenDir, defaultSaveDir
+ */
+export function setDirectoryConfig(config) {
+  bridge.setDirectoryConfig({
+    defaultOpenDir: config?.defaultOpenDir || config?.defaultPathImageLoad,
+    defaultSaveDir: config?.defaultSaveDir || config?.defaultPathImageSave,
+  });
 }
 
 // ============================================================================

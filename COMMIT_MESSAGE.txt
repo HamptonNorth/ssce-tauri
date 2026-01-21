@@ -1,0 +1,30 @@
+feat: Initial SSCE Desktop (Tauri) setup
+
+Tauri v2 wrapper for SSCE (Simple Screen Capture Editor).
+Packages the existing vanilla JS + Canvas web app as a native desktop application.
+
+Key features:
+- Full SSCE functionality preserved from web version
+- Native desktop application using system WebView
+- Cross-platform support (Linux, Windows, macOS)
+- ~13MB standalone binary / ~4MB packaged
+
+Project structure:
+- src/: Web content (SSCE frontend, unchanged)
+- src-tauri/: Tauri/Rust backend
+
+Documentation:
+- CLAUDE.md: Project overview and development guidance
+- MIGRATION_TO_TAURI.md: Steps to migrate from SSCE
+- CHEAT_SHEET.md: Tauri/Rust command reference
+
+Tested on:
+- Linux (Ubuntu) with WebKitGTK 4.1
+- Canvas API validation: 7/7 features working
+
+Not yet implemented:
+- Native file dialogs (uses web dialogs)
+- Rust-based file I/O (planned for Phase 1)
+
+Build: cargo tauri build
+Dev: cargo tauri dev

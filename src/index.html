@@ -577,50 +577,6 @@
             </form>
         </dialog>
 
-        <!-- Browse Files Dialog -->
-        <dialog id="dialog-browse" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[600px]">
-            <h2 class="text-lg font-semibold mb-4">Open Image</h2>
-            <div class="space-y-4">
-                <!-- Current directory path -->
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="text-gray-400 w-16">Directory:</span>
-                    <span id="browse-path" class="text-gray-200 flex-1 font-mono truncate"></span>
-                    <button type="button" id="browse-refresh" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600" title="Refresh">↻</button>
-                </div>
-
-                <!-- File type filter -->
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="text-gray-400 w-16">Show:</span>
-                    <select id="browse-filter" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm">
-                        <option value="all">All files (*.ssce, *.png, *.jpg)</option>
-                        <option value="ssce">.ssce files only</option>
-                        <option value="images">Image files only (*.png, *.jpg)</option>
-                    </select>
-                </div>
-
-                <!-- File list -->
-                <div id="browse-list" class="bg-gray-700 rounded border border-gray-600 max-h-96 overflow-y-auto">
-                    <!-- Populated by JavaScript -->
-                </div>
-
-                <!-- Selected file -->
-                <div class="text-sm">
-                    <span class="text-gray-400">Selected:</span>
-                    <span id="browse-selected" class="text-gray-200 ml-2">None</span>
-                </div>
-
-                <!-- Action buttons -->
-                <div class="flex justify-between gap-2 mt-6">
-                    <button type="button" id="browse-system" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Use System Dialog</button>
-                    <div class="flex gap-2">
-                        <button type="button" id="browse-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
-                        <button type="button" id="browse-open" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500" disabled>Open</button>
-                        <button type="button" id="browse-select-dir" class="hidden px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Select This Folder</button>
-                    </div>
-                </div>
-            </div>
-        </dialog>
-
         <!-- Paste Position Dialog -->
         <dialog id="dialog-paste-position" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[500px]">
             <h2 class="text-lg font-semibold mb-4">Paste Image</h2>

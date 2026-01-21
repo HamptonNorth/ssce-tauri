@@ -1,123 +1,9 @@
 /**
  * SSCE - Export Utilities
  *
- * Handles saving images to server and printing.
+ * Handles printing and download (fallback).
+ * File saving is now handled via tauri-bridge.js
  */
-
-import { showAlertModal } from "../ui/dialogs/index.js";
-
-// Default timeout for save operations (5 seconds)
-const SAVE_TIMEOUT_MS = 5000;
-
-/**
- * Fetch with timeout support using Promise.race
- * @param {string} url - URL to fetch
- * @param {Object} options - Fetch options
- * @param {number} timeout - Timeout in milliseconds
- * @returns {Promise<Response>}
- */
-async function fetchWithTimeout(url, options, timeout = SAVE_TIMEOUT_MS) {
-  const controller = new AbortController();
-  let timeoutId;
-
-  // Create timeout promise that rejects
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      controller.abort();
-      reject(new Error("Request timed out. The server may be unavailable."));
-    }, timeout);
-  });
-
-  try {
-    // Create fetch promise
-    const fetchPromise = fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-
-    // Race between fetch and timeout
-    const response = await Promise.race([fetchPromise, timeoutPromise]);
-    clearTimeout(timeoutId);
-    return response;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    // Handle connection refused / network errors
-    if (err.message.includes("Failed to fetch") || err.message.includes("NetworkError")) {
-      throw new Error("Cannot connect to server. The server may be unavailable.");
-    }
-    throw err;
-  }
-}
-
-/**
- * Save image to the server (overwrite original)
- * @param {string} imageData - PNG data URL
- * @returns {Promise<Object>} Result with success status
- */
-export async function saveImage(imageData) {
-  try {
-    const response = await fetchWithTimeout("/api/save", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ imageData }),
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      console.log("SSCE: Saved to", result.path);
-    } else {
-      console.error("SSCE: Save failed", result.error);
-      await showAlertModal("Save Failed", "The file could not be saved.\n\nError: " + result.error, "error");
-    }
-
-    return result;
-  } catch (err) {
-    console.error("SSCE: Save error", err);
-    await showAlertModal("Save Failed", "The file could not be saved.\n\nError: " + err.message, "error");
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Save image with a new filename
- * @param {string} imageData - PNG data URL
- * @param {string} filename - New filename
- * @param {string} directory - Optional directory path
- * @returns {Promise<Object>} Result with success status
- */
-export async function saveImageAs(imageData, filename, directory = null) {
-  try {
-    const response = await fetchWithTimeout("/api/saveas", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        imageData,
-        filename,
-        directory,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      console.log("SSCE: Saved as", result.path);
-    } else {
-      console.error("SSCE: SaveAs failed", result.error);
-      await showAlertModal("Save Failed", "The file could not be saved.\n\nError: " + result.error, "error");
-    }
-
-    return result;
-  } catch (err) {
-    console.error("SSCE: SaveAs error", err);
-    await showAlertModal("Save Failed", "The file could not be saved.\n\nError: " + err.message, "error");
-    return { success: false, error: err.message };
-  }
-}
 
 /**
  * Print the canvas
@@ -180,7 +66,6 @@ export function printImage(canvasManager, orientation = "portrait") {
   window.print();
 
   // Cleanup after print dialog closes
-  // Use a small delay to ensure print dialog has opened
   setTimeout(() => {
     printContainer.remove();
     printStyles.remove();
@@ -188,7 +73,7 @@ export function printImage(canvasManager, orientation = "portrait") {
 }
 
 /**
- * Download image directly to browser (fallback if server save fails)
+ * Download image directly to browser (fallback if not in Tauri)
  * @param {string} imageData - PNG data URL
  * @param {string} filename
  */

@@ -22,7 +22,7 @@ import { CutTool } from "./tools/cut.js";
 import { FadeEdgesTool } from "./tools/fade-edges.js";
 import { BordersTool } from "./tools/borders.js";
 import { loadColours } from "./utils/colours.js";
-import { saveImage, saveImageAs, printImage } from "./utils/export.js";
+import { printImage, downloadImage } from "./utils/export.js";
 import { showToast } from "./utils/toast.js";
 import { state, modules, loadPersistedState, persistState } from "./state.js";
 import { initDragAndDrop } from "./drag-drop.js";
@@ -30,12 +30,13 @@ import { initColourPalette, selectColour } from "./ui/colour-palette.js";
 import { handlePasteFromClipboard, handleCopyToClipboard, handleFlatten, handleFlattenSelected } from "./clipboard.js";
 import { initToolbarEvents, setActiveTool } from "./ui/toolbar.js";
 import { initKeyboardShortcuts } from "./keyboard.js";
-import { newCanvas, openFile, openBrowseSelected, selectCurrentDirectory, browseTo, setSaveDirectory, handleFileSelect, loadImageFile, loadInitialImage, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, updateUndoRedoButtons } from "./file-operations.js";
+import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, updateUndoRedoButtons, setDirectoryConfig, saveAsSsce } from "./file-operations.js";
+import * as tauriBridge from "./tauri-bridge.js";
 import { initDialogs, showSaveAsDialog, showSaveOptionsDialog, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
 import { loadConfig, getToolConfig, getSymbols, getSteps } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
-import { saveSsceFile, loadSsceFile, initSsceSession, addSnapshot, getSnapshots } from "./ssce-file-ops.js";
+import { initSsceSession, addSnapshot, getSnapshots, setFrontMatter } from "./ssce-file-ops.js";
 import { serialize, deserialize, createSnapshot } from "./utils/ssce-format.js";
 import { initAutoSave, cleanupTempFile, checkForRecovery, loadRecoveryFile, deleteRecoveryFile } from "./utils/autosave.js";
 import { downloadSnapshotHtml } from "./utils/snapshot-viewer-export.js";
@@ -82,6 +83,12 @@ async function init() {
   } catch (err) {
     console.error("SSCE: Failed to load tool defaults, using fallbacks", err);
   }
+
+  // Configure directory defaults for Tauri file dialogs
+  setDirectoryConfig({
+    defaultOpenDir: state.config?.defaultOpenDir || state.config?.defaultPathImageLoad,
+    defaultSaveDir: state.config?.defaultSaveDir || state.config?.defaultPathImageSave,
+  });
 
   // Load persisted state from localStorage
   loadPersistedState();
@@ -161,7 +168,6 @@ async function init() {
     handleFlatten: () => handleFlatten(updateStatusBar, updateUndoRedoButtons),
     handleFlattenSelected: () => handleFlattenSelected(updateStatusBar, updateUndoRedoButtons),
     toggleSaveToDefault,
-    setSaveDirectory,
     handleUndo,
     handleRedo,
     showResizeDialog,
@@ -197,9 +203,6 @@ async function init() {
 
   // Check for recovery files from previous crash
   await checkRecoveryFiles();
-
-  // Check if server has an initial image to load
-  await loadInitialImage(updateStatusBar);
 
   // Initialize auto-save system
   initAutoSave({
@@ -492,25 +495,12 @@ async function handleUnifiedSave(updateStatusBar, forceNewFile = false) {
   const extension = options.format === "jpg" ? ".jpg" : ".png";
   let filename = options.filename + extension;
 
-  // Get save directory
-  const saveDir = getSaveDirectory();
-
-  // Auto-increment if needed
-  if (saveDir || forceNewFile) {
-    filename = await getAutoIncrementedFilename(saveDir, filename);
-  }
-
-  // Save the image
-  const imageData = modules.canvasManager.toDataURL();
-  const result = await saveImageAs(imageData, filename, saveDir);
-
-  if (result.success) {
-    state.filename = result.filename;
-    state.hasUnsavedChanges = false;
+  // Use native save dialog in Tauri
+  if (tauriBridge.isTauri()) {
+    await handleSaveAs(updateStatusBar);
 
     // If keepSsce is checked, also save .ssce file
-    if (options.keepSsce) {
-      // Show front matter dialog
+    if (options.keepSsce && state.currentFilePath) {
       const frontMatter = await showFrontMatterDialog({
         title: "File Information",
         frontMatter: state.frontMatter || {},
@@ -518,30 +508,22 @@ async function handleUnifiedSave(updateStatusBar, forceNewFile = false) {
       });
 
       if (frontMatter) {
-        // Generate .ssce filename (same base name)
-        const ssceFilename = options.filename + ".ssce";
-
-        // Save .ssce file
-        const ssceResult = await saveSsceFile({
-          filename: ssceFilename,
-          directory: saveDir,
-          frontMatter,
-        });
-
+        const ssceResult = await saveAsSsce({ frontMatter }, updateStatusBar);
         if (ssceResult.success) {
-          state.frontMatter = frontMatter;
-          showToast(`Saved: ${result.filename} and ${ssceFilename}`);
-        } else {
-          showToast(`Image saved, but .ssce failed: ${ssceResult.error}`, "error");
+          setFrontMatter(frontMatter);
         }
-      } else {
-        // User cancelled front matter, just report image save
-        showToast(`Saved: ${result.filename}`);
       }
     }
-
-    updateStatusBar();
+    return;
   }
+
+  // Fallback for non-Tauri: download via browser
+  const imageData = modules.canvasManager.toDataURL();
+  downloadImage(imageData, filename);
+  state.filename = filename;
+  state.hasUnsavedChanges = false;
+  showToast(`Downloaded: ${filename}`, "success");
+  updateStatusBar();
 }
 
 /**
@@ -550,26 +532,39 @@ async function handleUnifiedSave(updateStatusBar, forceNewFile = false) {
 async function handleSaveSsce(updateStatusBar) {
   // If no filename or filename is PNG, prompt for new name
   const currentFilename = state.filename || "";
-  const isSsceFile = currentFilename.toLowerCase().endsWith(".ssce");
+  const isSsceFilename = currentFilename.toLowerCase().endsWith(".ssce");
 
-  if (!isSsceFile) {
-    // Need to get a new filename - show front matter dialog first
+  if (!isSsceFilename) {
+    // Need to get a new filename
     await handleSaveAsSsce(updateStatusBar);
     return;
   }
 
-  // Save to existing .ssce file
-  const directory = getSaveDirectory() || state.config?.defaultPathImageSave || "";
-  const result = await saveSsceFile({
-    filename: currentFilename,
-    directory,
-    frontMatter: state.frontMatter || {},
-  });
+  // Save to existing .ssce file using Tauri bridge
+  if (tauriBridge.isTauri() && state.currentFilePath) {
+    try {
+      const { serialize } = await import("./utils/ssce-format.js");
+      const layers = modules.layerManager.getLayers();
+      const canvasSize = modules.canvasManager.getSize();
+      const frontMatter = {
+        ...(state.frontMatter || {}),
+        modified: new Date().toISOString(),
+      };
+      const snapshots = state.snapshots || [];
 
-  if (result.success) {
-    updateStatusBar();
+      const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots });
+      await tauriBridge.saveSsce(state.currentFilePath, ssceData);
+
+      state.hasUnsavedChanges = false;
+      state.frontMatter = frontMatter;
+      showToast(`Saved: ${state.filename}`, "success");
+      updateStatusBar();
+    } catch (err) {
+      showToast(`Save failed: ${err.message}`, "error");
+    }
   } else {
-    showToast(`Save failed: ${result.error}`, "error");
+    // No existing path, do save as
+    await handleSaveAsSsce(updateStatusBar);
   }
 }
 
@@ -588,31 +583,12 @@ async function handleSaveAsSsce(updateStatusBar) {
     return; // User cancelled
   }
 
-  // Generate filename from title or use default
-  let filename = frontMatter.title ? frontMatter.title.replace(/[^a-zA-Z0-9-_ ]/g, "").replace(/\s+/g, "_") : "screenshot";
-
-  // Ensure .ssce extension
-  if (!filename.toLowerCase().endsWith(".ssce")) {
-    filename += ".ssce";
-  }
-
-  // Get save directory
-  const directory = getSaveDirectory() || state.config?.defaultPathImageSave || "";
-
-  // Auto-increment if file exists
-  filename = await getAutoIncrementedFilename(directory, filename);
-
-  // Save the file
-  const result = await saveSsceFile({
-    filename,
-    directory,
-    frontMatter,
-  });
+  // Use the saveAsSsce function from file-operations
+  const result = await saveAsSsce({ frontMatter }, updateStatusBar);
 
   if (result.success) {
-    state.frontMatter = frontMatter;
-    updateStatusBar();
-  } else {
+    setFrontMatter(frontMatter);
+  } else if (result.error !== "Cancelled") {
     showToast(`Save failed: ${result.error}`, "error");
   }
 }
@@ -734,6 +710,11 @@ function getSaveDirectory() {
  * @returns {Promise<string>} - Available filename
  */
 async function getAutoIncrementedFilename(directory, filename) {
+  // If no directory or not in Tauri, just return filename
+  if (!directory || !tauriBridge.isTauri()) {
+    return filename;
+  }
+
   // Extract name and extension
   const lastDot = filename.lastIndexOf(".");
   const name = lastDot > 0 ? filename.substring(0, lastDot) : filename;
@@ -748,23 +729,17 @@ async function getAutoIncrementedFilename(directory, filename) {
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const fullPath = `${directory}/${testFilename}`;
+      const exists = await tauriBridge.fileExists(fullPath);
 
-      const response = await fetch(`/api/file-exists?dir=${encodeURIComponent(directory)}&file=${encodeURIComponent(testFilename)}`, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      const data = await response.json();
-
-      if (!data.exists) {
+      if (!exists) {
         return testFilename;
       }
 
       testFilename = `${name}_${counter}${ext}`;
       counter++;
     } catch (err) {
-      // On network error, just return the original filename
-      // The actual save will fail with a proper error message
+      // On error, just return the original filename
       console.error("SSCE: File exists check failed:", err.message);
       return filename;
     }

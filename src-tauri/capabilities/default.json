@@ -3,8 +3,5 @@
   "identifier": "default",
   "description": "Default capabilities for SSCE",
   "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "shell:allow-open"
-  ]
+  "permissions": ["core:default", "shell:allow-open", "dialog:default", "fs:default", "fs:allow-read", "fs:allow-write", "fs:allow-exists", "fs:allow-mkdir"]
 }
