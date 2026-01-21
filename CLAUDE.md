@@ -1,0 +1,178 @@
+# CLAUDE.md - SSCE Desktop (Tauri)
+
+## Project Overview
+
+SSCE Desktop is a Tauri-wrapped version of SSCE (Simple Screen Capture Editor). It packages the existing vanilla JS + HTML5 Canvas web application as a native desktop application.
+
+**Tech Stack:**
+- **Frontend**: Vanilla JavaScript (ES6 modules), HTML5 Canvas API, Tailwind CSS
+- **Desktop Runtime**: Tauri v2 (Rust-based, uses system WebView)
+- **Backend**: Rust (minimal - primarily for file operations)
+- **Platforms**: Linux (primary), Windows, macOS
+
+**Key Documentation:**
+- **CLAUDE.md** (this file): Project overview and development guidance
+- **MIGRATION_TO_TAURI.md**: Steps to recreate this project from SSCE
+- **CHEAT_SHEET.md**: Common Tauri/Rust commands
+
+## Developer Note: Limited Rust Experience
+
+The maintainer has **limited Rust experience**. When making changes to Rust code:
+- Provide clear explanations of Rust concepts
+- Suggest simple, idiomatic solutions over clever ones
+- Include error handling patterns
+- Explain ownership/borrowing when relevant
+
+## Project Structure
+
+```
+ssce-tauri/
+├── src/                      # Web content (SSCE frontend)
+│   ├── index.html            # Main application
+│   ├── js/                   # JavaScript modules
+│   │   ├── app.js            # Coordinator
+│   │   ├── state.js          # State management
+│   │   ├── canvas.js         # Canvas rendering
+│   │   ├── layers.js         # Layer management
+│   │   ├── tools/            # Drawing tools
+│   │   ├── ui/               # UI modules
+│   │   └── utils/            # Utilities
+│   └── css/                  # Stylesheets
+├── src-tauri/                # Tauri/Rust backend
+│   ├── Cargo.toml            # Rust dependencies
+│   ├── tauri.conf.json       # Tauri configuration
+│   ├── capabilities/         # Security permissions
+│   ├── icons/                # Application icons
+│   └── src/
+│       └── main.rs           # Rust entry point
+├── CLAUDE.md                 # This file
+├── MIGRATION_TO_TAURI.md     # Migration guide
+└── CHEAT_SHEET.md            # Command reference
+```
+
+## Current Status
+
+### Working Features
+- All SSCE drawing tools (arrow, line, text, shapes, etc.)
+- Canvas rendering and layer management
+- Undo/redo
+- Keyboard shortcuts
+- UI (toolbar, dialogs, property cards)
+
+### Not Yet Implemented (Tauri-specific)
+- Native file dialogs (currently uses web dialogs)
+- File system access via Rust commands
+- Clipboard integration
+- Native menus (optional)
+
+## Architecture
+
+### Frontend (src/)
+The frontend is unchanged from SSCE. It's a vanilla JS application that:
+- Uses HTML5 Canvas for rendering
+- Manages layers and annotations
+- Handles user input (mouse, keyboard)
+
+### Backend (src-tauri/)
+The Tauri backend is minimal:
+- `main.rs`: Application entry point
+- Future: Rust commands for file I/O
+
+### Communication
+Currently minimal. Future implementation:
+```javascript
+// JavaScript (frontend)
+import { invoke } from '@tauri-apps/api/core';
+const result = await invoke('save_image', { path, data });
+```
+
+```rust
+// Rust (backend)
+#[tauri::command]
+fn save_image(path: String, data: String) -> Result<(), String> {
+    // Implementation
+}
+```
+
+## Development Workflow
+
+### Prerequisites
+- Rust toolchain (rustup)
+- Tauri CLI: `cargo install tauri-cli --version "^2"`
+- Linux: `libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev`
+
+### Commands
+```bash
+cd src-tauri
+cargo tauri dev      # Run in development mode
+cargo tauri build    # Build for production
+```
+
+### Making Changes
+
+**Frontend changes** (src/):
+- Edit files directly
+- Hot reload in dev mode (Ctrl+R to refresh)
+- No build step required
+
+**Backend changes** (src-tauri/):
+- Edit Rust files
+- Tauri dev server auto-rebuilds
+- Check `cargo check` for errors
+
+## Key Differences from Browser SSCE
+
+| Aspect | Browser SSCE | Tauri Desktop |
+|--------|--------------|---------------|
+| File I/O | HTTP to Bun server | Rust commands (TBD) |
+| Runtime | Browser + Bun | WebKitGTK (Linux) |
+| Distribution | Run `bun server.js` | Standalone binary |
+| Size | N/A | ~13MB |
+
+## Future Development
+
+### Phase 1: File Operations
+Replace HTTP endpoints with Tauri commands:
+- `browse_directory` - List files
+- `load_image` - Load image file
+- `save_image` - Save image file
+- `file_exists` - Check file existence
+
+### Phase 2: Native Integration
+- Native file dialogs
+- Native clipboard
+- System tray (optional)
+- Auto-updates (optional)
+
+### Phase 3: Polish
+- Application icons
+- Installer improvements
+- Platform-specific tweaks
+
+## Debugging
+
+### Frontend
+- Use browser DevTools: Right-click > Inspect
+- Console logging: `console.log()`
+- Network tab shows asset loading
+
+### Backend
+- Rust println! macros appear in terminal
+- Use `RUST_BACKTRACE=1 cargo tauri dev` for stack traces
+
+## Common Issues
+
+1. **Build fails with "icon not RGBA"**: Icons must have alpha channel
+2. **WebKitGTK errors**: Install required system packages
+3. **Hot reload not working**: Press Ctrl+R or F5 to force refresh
+
+## Resources
+
+- [Tauri v2 Docs](https://v2.tauri.app/)
+- [Rust Book](https://doc.rust-lang.org/book/)
+- [SSCE Original Project](../ssce/)
+
+---
+
+*Version: 0.1.0*
+*Last Updated: January 2026*

@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SSCE - Simple Screen Capture Editor</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="alternate icon" href="/favicon.svg" />
+
+        <!-- Tailwind CSS via CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+
+        <!-- Custom styles -->
+        <link rel="stylesheet" href="/css/app.css" />
+    </head>
+    <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+        <!-- ================================================================== -->
+        <!-- Top Toolbar                                                        -->
+        <!-- ================================================================== -->
+        <header class="sticky top-0 bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center gap-3 z-40">
+            <!-- Branding -->
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded border border-gray-700 mr-2" style="background-color: #f2e6e6">
+                <img src="/images/logo.svg" alt="SSCE" class="w-5 h-5" />
+                <span class="text-sm font-bold text-gray-800 hidden sm:inline">SSCE</span>
+            </div>
+
+            <!-- File dropdown -->
+            <div class="relative border-r border-gray-600 pr-3">
+                <button id="file-menu-btn" class="toolbar-btn flex items-center gap-1" title="File menu">
+                    <span class="text-sm">File</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="file-menu" class="hidden absolute top-full left-0 mt-1 bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[240px]">
+                    <button id="menu-new" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>New Canvas</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+N</span>
+                    </button>
+                    <div class="border-t border-gray-600 my-1"></div>
+                    <button id="menu-open" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Open...</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+O</span>
+                    </button>
+                    <button id="menu-save" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        <span>Save</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+S</span>
+                    </button>
+                    <button id="menu-saveas" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Save As...</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+Shift+S</span>
+                    </button>
+                    <div class="border-t border-gray-600 my-1"></div>
+                    <button id="menu-paste" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <span>Paste</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+V</span>
+                    </button>
+                    <button id="menu-copy" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <span>Copy</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+C</span>
+                    </button>
+                    <div class="border-t border-gray-600 my-1"></div>
+                    <button id="menu-flatten" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <span>Flatten All</span>
+                    </button>
+                    <button id="menu-flatten-selected" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Flatten Selected</span>
+                    </button>
+                    <button id="menu-snapshot" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>Snapshot</span>
+                    </button>
+                    <button id="menu-view-snapshots" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>View Snapshots...</span>
+                    </button>
+                    <div class="border-t border-gray-600 my-1"></div>
+                    <button id="menu-print" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        <span>Print...</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+P</span>
+                    </button>
+                    <div class="border-t border-gray-600 my-1"></div>
+                    <button id="menu-save-to-default" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <span id="save-to-default-check" class="w-4 text-center hidden">✓</span>
+                        <span id="save-to-default-uncheck" class="w-4 text-center"></span>
+                        <span>Save to Default Directory</span>
+                    </button>
+                    <button id="menu-set-save-dir" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        <span>Set Save Directory...</span>
+                    </button>
+                    <div class="border-t border-gray-600 my-1"></div>
+                    <button id="menu-export-png" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Export As PNG...</span>
+                    </button>
+                    <button id="menu-export-snapshot-viewer" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Export Snapshot Viewer...</span>
+                    </button>
+                    <button id="menu-edit-file-info" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Edit File Info...</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Undo/Redo -->
+            <div class="flex items-center gap-2 border-r border-gray-600 pr-3">
+                <button id="btn-undo" class="toolbar-btn" title="Undo (Ctrl+Z)" disabled>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                </button>
+                <button id="btn-redo" class="toolbar-btn" title="Redo (Ctrl+Y)" disabled>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Tools -->
+            <div class="flex items-center gap-1 border-r border-gray-600 pr-3">
+                <!-- Main Tools - Always Visible -->
+                <button id="btn-tool-select" class="toolbar-btn tool-btn active" data-tool="select" title="Select/Move (V)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                    </svg>
+                </button>
+                <button id="btn-tool-line" class="toolbar-btn tool-btn" data-tool="line" title="Line (L)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19l14-14" />
+                    </svg>
+                </button>
+                <button id="btn-tool-arrow" class="toolbar-btn tool-btn" data-tool="arrow" title="Arrow (A)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                </button>
+                <button id="btn-tool-text" class="toolbar-btn tool-btn" data-tool="text" title="Text (T)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+                    </svg>
+                </button>
+                <button id="btn-tool-shape" class="toolbar-btn tool-btn" data-tool="shape" title="Rectangle (S)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="4" y="6" width="16" height="12" stroke-width="2" rx="2" />
+                    </svg>
+                </button>
+
+                <!-- Currently Selected More Tool (hidden by default, shown when a more tool is active) -->
+                <button id="btn-selected-more-tool" class="toolbar-btn tool-btn hidden" data-tool="" title="">
+                    <!-- Icon will be populated dynamically -->
+                </button>
+
+                <!-- Vertical divider -->
+                <div class="w-px h-6 bg-gray-600 mx-1"></div>
+
+                <!-- More Tools Dropdown -->
+                <div class="relative">
+                    <button id="btn-more-tools" class="toolbar-btn flex items-center gap-1" title="More Tools">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="more-tools-menu" class="hidden absolute top-full left-0 mt-1 bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
+                        <button id="more-tool-cut" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="cut">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18M3 12h18" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9L3 3M15 9l6-6M9 15l-6 6M15 15l6 6" opacity="0.4" />
+                            </svg>
+                            <span>Cut</span>
+                            <span class="ml-auto text-xs text-gray-400">U</span>
+                        </button>
+                        <button id="more-tool-crop" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="crop">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V3h4M3 17v4h4M17 3h4v4M17 21h4v-4" />
+                                <rect x="6" y="6" width="12" height="12" stroke-width="2" stroke-dasharray="3 2" fill="none" />
+                            </svg>
+                            <span>Crop</span>
+                            <span class="ml-auto text-xs text-gray-400">R</span>
+                        </button>
+                        <button id="more-tool-steps" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="steps">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            <span>Steps</span>
+                        </button>
+                        <button id="more-tool-symbols" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="symbols">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Symbols</span>
+                        </button>
+                        <button id="more-tool-combine" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="combine">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                            </svg>
+                            <span>Combine Images</span>
+                        </button>
+                        <button id="more-tool-highlight" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="highlight">
+                            <svg class="w-4 h-4" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+                                <rect x="3" y="8" width="18" height="8" rx="1" fill-opacity="0.3" stroke-width="0" />
+                            </svg>
+                            <span>Highlight</span>
+                        </button>
+                        <div class="border-t border-gray-600 my-1"></div>
+                        <button id="more-tool-fade-edges" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="fade-edges">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <rect x="4" y="4" width="16" height="16" stroke-width="2" stroke-dasharray="2 2" fill="none" opacity="0.5" />
+                                <path stroke-linecap="round" stroke-width="2" d="M4 4h16M4 4v16" opacity="0.8" />
+                            </svg>
+                            <span>Fade Edges</span>
+                        </button>
+                        <button id="more-tool-borders" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2" data-tool="borders">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2" />
+                                <rect x="6" y="6" width="12" height="12" stroke-width="1" stroke-dasharray="2 2" opacity="0.5" />
+                            </svg>
+                            <span>Borders</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Line Style (visible when arrow or line tool active) -->
+            <div id="line-options" class="relative border-r border-gray-600 pr-3 hidden">
+                <button id="line-style-btn" class="toolbar-btn flex items-center gap-2 text-sm" title="Line style">
+                    <span id="current-line-style">Solid</span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="line-style-menu" class="hidden absolute top-full left-0 mt-1 bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
+                    <button data-style="solid" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <div class="line-style-preview-solid w-12 h-0.5 rounded" style="background-color: #ff0000"></div>
+                        <span>Solid</span>
+                    </button>
+                    <button data-style="dashed" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="line-style-preview-dashed w-12 h-1" viewBox="0 0 48 4" preserveAspectRatio="none">
+                            <line x1="0" y1="2" x2="48" y2="2" stroke="#FF0000" stroke-width="2" stroke-dasharray="6 3" />
+                        </svg>
+                        <span>Dashed</span>
+                    </button>
+                    <button data-style="dotted" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="line-style-preview-dotted w-12 h-1" viewBox="0 0 48 4" preserveAspectRatio="none">
+                            <line x1="0" y1="2" x2="48" y2="2" stroke="#FF0000" stroke-width="2" stroke-dasharray="2 3" />
+                        </svg>
+                        <span>Dotted</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Text Size (visible when text tool active) -->
+            <div id="text-options" class="relative border-r border-gray-600 pr-3 hidden">
+                <button id="text-size-btn" class="toolbar-btn flex items-center gap-2 text-sm" title="Text size">
+                    <span id="current-text-size">MD</span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="text-size-menu" class="hidden absolute top-full left-0 mt-1 bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
+                    <button data-size="xs" class="w-full px-4 py-2 text-left hover:bg-gray-600">XS (12px)</button>
+                    <button data-size="sm" class="w-full px-4 py-2 text-left hover:bg-gray-600">SM (16px)</button>
+                    <button data-size="md" class="w-full px-4 py-2 text-left hover:bg-gray-600">MD (20px)</button>
+                    <button data-size="lg" class="w-full px-4 py-2 text-left hover:bg-gray-600">LG (28px)</button>
+                </div>
+            </div>
+
+            <!-- Shape Options (visible when shape tool active) -->
+            <div id="shape-options" class="flex gap-2 border-r border-gray-600 pr-3 hidden">
+                <!-- Fill Color Picker -->
+                <button id="shape-fill-btn" class="toolbar-btn flex items-center gap-1" title="Fill color">
+                    <div
+                        id="shape-fill-indicator"
+                        class="w-4 h-4 rounded border border-gray-400"
+                        style="
+                            background: transparent;
+                            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+                            background-size: 8px 8px;
+                            background-position:
+                                0 0,
+                                0 4px,
+                                4px -4px,
+                                -4px 0px;
+                        "
+                    ></div>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                <!-- Corner Style Selector -->
+                <div class="relative">
+                    <button id="corner-style-btn" class="toolbar-btn flex items-center gap-2 text-sm" title="Corner style">
+                        <span id="current-corner-style">Square</span>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="corner-style-menu" class="hidden absolute top-full left-0 mt-1 bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
+                        <button data-corner="square" class="w-full px-4 py-2 text-left hover:bg-gray-600">
+                            <span>Square</span>
+                        </button>
+                        <button data-corner="rounded" class="w-full px-4 py-2 text-left hover:bg-gray-600">
+                            <span>Rounded</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas resize -->
+            <button id="btn-resize-canvas" class="toolbar-btn" title="Resize Canvas">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- ================================================================== -->
+        <!-- Main Canvas Area                                                   -->
+        <!-- ================================================================== -->
+        <main class="flex-1 overflow-auto p-4" id="canvas-container">
+            <!-- Canvas wrapper with checkerboard background for transparency -->
+            <div id="canvas-wrapper" class="relative canvas-checkerboard shadow-2xl">
+                <canvas id="main-canvas"></canvas>
+
+                <!-- Text input overlay (hidden by default) -->
+                <textarea id="text-input" class="absolute hidden bg-transparent border-none outline-none resize-none overflow-hidden" placeholder="Type text..." rows="1"></textarea>
+            </div>
+
+            <!-- Drop zone overlay -->
+            <div id="drop-zone" class="hidden absolute inset-4 border-4 border-dashed border-blue-500 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <p class="text-xl text-blue-300">Drop image here</p>
+            </div>
+        </main>
+
+        <!-- ================================================================== -->
+        <!-- Dialogs / Modals                                                   -->
+        <!-- ================================================================== -->
+
+        <!-- Save As Dialog -->
+        <dialog id="dialog-saveas" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Save As</h2>
+            <form method="dialog" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Filename</label>
+                    <input type="text" id="saveas-filename" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="screenshot.png" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Resize (optional)</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="saveas-width" class="w-24 bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="Width" />
+                        <span class="text-gray-500">or</span>
+                        <input type="number" id="saveas-height" class="w-24 bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="Height" />
+                        <span class="text-sm text-gray-500">px</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Leave blank for original size. Set only one to maintain aspect ratio.</p>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="saveas-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="saveas-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Save</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Unified Save Dialog (Phase 5F) -->
+        <dialog id="dialog-save-options" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[400px]">
+            <h2 class="text-lg font-semibold mb-4">Save Image</h2>
+            <form method="dialog" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Filename</label>
+                    <input type="text" id="save-options-filename" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="screenshot" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Export Format</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="save-format" value="png" id="save-format-png" class="w-4 h-4 bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500" checked />
+                            <span class="text-sm text-gray-300">PNG</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="save-format" value="jpg" id="save-format-jpg" class="w-4 h-4 bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500" />
+                            <span class="text-sm text-gray-300">JPG</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="border-t border-gray-600 pt-4">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="save-options-keep-ssce" class="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500" />
+                        <div>
+                            <span class="text-sm text-gray-200">Keep .ssce for further editing</span>
+                            <p class="text-xs text-gray-500 mt-0.5">Saves both the image and an .ssce file preserving layers</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="save-options-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="save-options-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Save</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Resize Canvas Dialog -->
+        <dialog id="dialog-resize" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Resize Canvas</h2>
+            <form method="dialog" class="space-y-4">
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="resize-add-mode" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500" />
+                        <span class="text-sm text-gray-300">Add to dimensions</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="resize-keep-ratio" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500" />
+                        <span class="text-sm text-gray-300">Keep aspect ratio</span>
+                    </label>
+                </div>
+                <div class="flex gap-4 items-end">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Width</label>
+                        <input type="number" id="resize-width" class="w-24 bg-gray-700 border border-gray-600 rounded px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Height</label>
+                        <input type="number" id="resize-height" class="w-24 bg-gray-700 border border-gray-600 rounded px-3 py-2" />
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Anchor</label>
+                    <div class="grid grid-cols-3 gap-1 w-24">
+                        <button type="button" class="anchor-btn" data-anchor="tl" title="Top-Left">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 5l14 14M5 12V5h7" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="tc" title="Top-Center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M8 9l4-4 4 4" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="tr" title="Top-Right">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 5L5 19M12 5h7v7" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="ml" title="Middle-Left">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M9 8l-4 4 4 4" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn active" data-anchor="mc" title="Center">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="4" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="mr" title="Middle-Right">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5M15 8l4 4-4 4" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="bl" title="Bottom-Left">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 19L19 5M5 12v7h7" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="bc" title="Bottom-Center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M8 15l4 4 4-4" />
+                            </svg>
+                        </button>
+                        <button type="button" class="anchor-btn" data-anchor="br" title="Bottom-Right">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 19L5 5M12 19h7v-7" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="resize-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="resize-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Resize</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Print Dialog -->
+        <dialog id="dialog-print" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Print Options</h2>
+            <form method="dialog" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Orientation</label>
+                    <div class="flex gap-2">
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="orientation" value="portrait" checked class="text-blue-500" />
+                            Portrait
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="orientation" value="landscape" class="text-blue-500" />
+                            Landscape
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="print-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="button" id="print-preview" class="px-4 py-2 rounded bg-gray-600 hover:bg-gray-500">Preview</button>
+                    <button type="submit" id="print-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Print</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Combine Image Position Dialog -->
+        <dialog id="dialog-combine" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Position Second Image</h2>
+            <form method="dialog" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Position relative to current image:</label>
+                    <div class="grid grid-cols-3 gap-2 w-48 mx-auto">
+                        <div></div>
+                        <button type="button" class="position-btn" data-position="above">↑ Above</button>
+                        <div></div>
+                        <button type="button" class="position-btn" data-position="left">← Left</button>
+                        <div class="bg-gray-600 rounded flex items-center justify-center text-xs">Current</div>
+                        <button type="button" class="position-btn" data-position="right">Right →</button>
+                        <div></div>
+                        <button type="button" class="position-btn" data-position="below">↓ Below</button>
+                        <div></div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 text-center">Use arrow keys to fine-tune position after placing</p>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="combine-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Browse Files Dialog -->
+        <dialog id="dialog-browse" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[600px]">
+            <h2 class="text-lg font-semibold mb-4">Open Image</h2>
+            <div class="space-y-4">
+                <!-- Current directory path -->
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="text-gray-400 w-16">Directory:</span>
+                    <span id="browse-path" class="text-gray-200 flex-1 font-mono truncate"></span>
+                    <button type="button" id="browse-refresh" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600" title="Refresh">↻</button>
+                </div>
+
+                <!-- File type filter -->
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="text-gray-400 w-16">Show:</span>
+                    <select id="browse-filter" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm">
+                        <option value="all">All files (*.ssce, *.png, *.jpg)</option>
+                        <option value="ssce">.ssce files only</option>
+                        <option value="images">Image files only (*.png, *.jpg)</option>
+                    </select>
+                </div>
+
+                <!-- File list -->
+                <div id="browse-list" class="bg-gray-700 rounded border border-gray-600 max-h-96 overflow-y-auto">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <!-- Selected file -->
+                <div class="text-sm">
+                    <span class="text-gray-400">Selected:</span>
+                    <span id="browse-selected" class="text-gray-200 ml-2">None</span>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="flex justify-between gap-2 mt-6">
+                    <button type="button" id="browse-system" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Use System Dialog</button>
+                    <div class="flex gap-2">
+                        <button type="button" id="browse-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                        <button type="button" id="browse-open" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500" disabled>Open</button>
+                        <button type="button" id="browse-select-dir" class="hidden px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Select This Folder</button>
+                    </div>
+                </div>
+            </div>
+        </dialog>
+
+        <!-- Paste Position Dialog -->
+        <dialog id="dialog-paste-position" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[500px]">
+            <h2 class="text-lg font-semibold mb-4">Paste Image</h2>
+            <form method="dialog" class="space-y-4">
+                <!-- Position method tabs -->
+                <div class="flex gap-2 mb-4 border-b border-gray-600">
+                    <button type="button" class="paste-method-tab active px-4 py-2" data-method="manual">Manual Position</button>
+                    <button type="button" class="paste-method-tab px-4 py-2" data-method="relative">Relative Position</button>
+                    <button type="button" class="paste-method-tab px-4 py-2" data-method="click">Click to Position</button>
+                </div>
+
+                <!-- Manual position panel -->
+                <div id="paste-panel-manual" class="paste-panel">
+                    <label class="block text-sm text-gray-400 mb-2">Position (X, Y):</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="paste-x" class="w-24 bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="X" value="0" />
+                        <input type="number" id="paste-y" class="w-24 bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="Y" value="0" />
+                        <span class="text-sm text-gray-500">px</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Canvas will expand if image falls outside current bounds</p>
+                </div>
+
+                <!-- Relative position panel -->
+                <div id="paste-panel-relative" class="paste-panel hidden">
+                    <label class="block text-sm text-gray-400 mb-2">Position relative to current image:</label>
+                    <div class="space-y-3">
+                        <!-- Edge selection -->
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Edge:</label>
+                            <select id="paste-edge" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                <option value="top">Top</option>
+                                <option value="right">Right</option>
+                                <option value="bottom">Bottom</option>
+                                <option value="left">Left</option>
+                            </select>
+                        </div>
+
+                        <!-- Alignment selection -->
+                        <div id="paste-alignment-container">
+                            <label class="block text-xs text-gray-500 mb-1">Alignment:</label>
+                            <select id="paste-alignment" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                <!-- Options populated by JS based on edge selection -->
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Image will be positioned at the selected edge with chosen alignment</p>
+                </div>
+
+                <!-- Click position panel -->
+                <div id="paste-panel-click" class="paste-panel hidden">
+                    <p class="text-sm text-gray-400 mb-2">Right-click on the canvas to set the insertion point for the pasted image.</p>
+                    <div class="bg-gray-700 rounded p-3 text-sm">
+                        <p class="text-gray-300">Selected position: <span id="click-position-display" class="text-blue-400">Not set</span></p>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">The dialog will minimize while you select the position</p>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="paste-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="paste-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Paste</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Colour Picker Dialog -->
+        <dialog id="dialog-colour-picker" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Custom Colour</h2>
+            <form method="dialog" class="space-y-4">
+                <div class="space-y-2">
+                    <label class="block text-sm">Pick a colour:</label>
+                    <div class="flex items-center gap-4">
+                        <input type="color" id="colour-picker-input" class="w-24 h-12 rounded cursor-pointer border-2 border-gray-600" value="#FF0000" />
+                        <div class="flex-1">
+                            <input type="text" id="colour-hex-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm font-mono" placeholder="#FF0000" maxlength="7" pattern="^#[0-9A-Fa-f]{6}$" />
+                            <p class="text-xs text-gray-400 mt-1">Enter hex colour code (e.g. #FF0000)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-700 pt-4">
+                    <button type="button" id="eyedropper-btn" class="w-full px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                        </svg>
+                        <span>Pick from Image</span>
+                    </button>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" id="colour-picker-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="colour-picker-ok" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">OK</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Rectangle Fill Colour Picker Dialog -->
+        <dialog id="dialog-shape-fill-picker" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Rectangle Fill Colour</h2>
+            <form method="dialog" class="space-y-4">
+                <!-- Colour Palette (8 swatches: 6 base + custom + transparent) -->
+                <div class="space-y-2">
+                    <label class="block text-sm">Select fill colour:</label>
+                    <div id="shape-fill-palette" class="flex gap-2 flex-wrap">
+                        <!-- Swatches populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Custom Colour Picker Section -->
+                <div class="border-t border-gray-700 pt-4 space-y-2">
+                    <label class="block text-sm">Custom Colour:</label>
+                    <div class="flex items-center gap-4">
+                        <input type="color" id="shape-fill-picker-input" class="w-24 h-12 rounded cursor-pointer border-2 border-gray-600" value="#FFFFFF" />
+                        <div class="flex-1">
+                            <input type="text" id="shape-fill-hex-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm font-mono" placeholder="#FFFFFF" maxlength="7" pattern="^#[0-9A-Fa-f]{6}$" />
+                            <p class="text-xs text-gray-400 mt-1">Enter hex colour code (e.g. #FFFFFF)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Eyedropper -->
+                <div class="border-t border-gray-700 pt-4">
+                    <button type="button" id="shape-fill-eyedropper-btn" class="w-full px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                        </svg>
+                        <span>Pick from Image</span>
+                    </button>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" id="shape-fill-picker-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="shape-fill-picker-ok" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">OK</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Steps Reset Dialog -->
+        <dialog id="dialog-steps-reset" class="bg-gray-800 text-gray-100 rounded-lg p-4 backdrop:bg-black/50 max-w-48">
+            <form method="dialog" class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Step number:</label>
+                    <input type="number" id="steps-reset-number" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-center text-lg" min="1" max="9" value="1" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Current (copy):</label>
+                    <input type="text" id="steps-current-symbol" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-center text-2xl" readonly tabindex="-1" />
+                </div>
+                <p class="text-xs text-gray-500 text-center">Return to accept, Esc to cancel</p>
+            </form>
+        </dialog>
+
+        <!-- Symbol Picker Dialog -->
+        <dialog id="dialog-symbol-picker" class="bg-gray-800 text-gray-100 rounded-lg p-4 backdrop:bg-black/50">
+            <form method="dialog" class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Select symbol:</label>
+                    <div id="symbol-picker-grid" class="grid grid-cols-3 gap-2">
+                        <!-- Symbols will be populated by JavaScript -->
+                    </div>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Generic Alert Modal (replaces browser alert()) -->
+        <dialog id="dialog-alert" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 max-w-md">
+            <div class="flex flex-col items-center text-center">
+                <div id="alert-icon" class="w-12 h-12 rounded-full flex items-center justify-center bg-red-500/20 text-red-400 mb-4">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h2 id="alert-title" class="text-lg font-semibold mb-2">Alert</h2>
+                <p id="alert-message" class="text-gray-300 whitespace-pre-wrap"></p>
+            </div>
+            <div class="flex justify-center mt-6">
+                <button id="alert-ok" class="px-6 py-2 rounded bg-gray-700 hover:bg-gray-600">OK</button>
+            </div>
+        </dialog>
+
+        <!-- Generic Confirm Modal (replaces browser confirm()) -->
+        <dialog id="dialog-confirm" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 max-w-md">
+            <div class="flex items-start gap-4">
+                <div id="confirm-icon" class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-yellow-500/20 text-yellow-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h2 id="confirm-title" class="text-lg font-semibold mb-2">Confirm</h2>
+                    <p id="confirm-message" class="text-gray-300 whitespace-pre-wrap"></p>
+                </div>
+            </div>
+            <div id="confirm-buttons" class="flex justify-end gap-2 mt-6">
+                <button id="confirm-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                <button id="confirm-ok" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Confirm</button>
+            </div>
+        </dialog>
+
+        <!-- Three-Way Choice Modal (for combine/replace decisions) -->
+        <dialog id="dialog-choice" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 max-w-md">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h2 id="choice-title" class="text-lg font-semibold mb-2">Choose Action</h2>
+                    <p id="choice-message" class="text-gray-300 whitespace-pre-wrap"></p>
+                </div>
+            </div>
+            <div id="choice-buttons" class="flex flex-col gap-2 mt-6">
+                <!-- Buttons will be populated dynamically -->
+            </div>
+        </dialog>
+
+        <!-- Front Matter Dialog -->
+        <dialog id="dialog-front-matter" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[400px]">
+            <h2 id="front-matter-title" class="text-lg font-semibold mb-4">File Information</h2>
+            <form method="dialog" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Title</label>
+                    <input type="text" id="front-matter-file-title" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2" placeholder="e.g., Software Issue 149" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Summary</label>
+                    <textarea id="front-matter-summary" rows="3" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 resize-none" placeholder="Brief description of the screenshot"></textarea>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-400 mb-1">Initials</label>
+                        <input type="text" id="front-matter-initials" maxlength="4" class="w-20 bg-gray-700 border border-gray-600 rounded px-3 py-2 uppercase" placeholder="ABC" />
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-400 mb-1">Date</label>
+                        <input type="text" id="front-matter-date" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-400" readonly />
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="front-matter-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="front-matter-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">OK</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- View Snapshots Dialog -->
+        <dialog id="dialog-view-snapshots" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[600px] max-w-[90vw]">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">View Snapshots</h2>
+                <button type="button" id="view-snapshots-close" class="p-1 rounded hover:bg-gray-700" title="Close (Escape)">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="snapshots-carousel-container">
+                <!-- Carousel component will be inserted here -->
+            </div>
+        </dialog>
+
+        <!-- Hidden file input for open dialog -->
+        <input type="file" id="file-input" accept="image/*,.ssce" class="hidden" />
+
+        <!-- Context menu for selected layers -->
+        <div id="layer-context-menu" class="hidden fixed bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
+            <!-- Layer Ordering Options -->
+            <button id="context-bring-to-front" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                </svg>
+                <span>Bring to Front</span>
+            </button>
+            <button id="context-bring-forward" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                </svg>
+                <span>Bring Forward</span>
+            </button>
+            <button id="context-send-backward" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+                <span>Send Backward</span>
+            </button>
+            <button id="context-send-to-back" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                </svg>
+                <span>Send to Back</span>
+            </button>
+
+            <!-- Divider -->
+            <div class="border-t border-gray-600 my-1"></div>
+
+            <!-- Flatten Selected Option (only shown when 2+ layers selected) -->
+            <button id="context-flatten-selected" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 hidden">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Flatten Selected</span>
+            </button>
+
+            <!-- Duplicate Option -->
+            <button id="context-duplicate" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>Duplicate</span>
+            </button>
+
+            <!-- Divider -->
+            <div class="border-t border-gray-600 my-1"></div>
+
+            <!-- Delete Option -->
+            <button id="context-delete" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 text-red-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Delete</span>
+            </button>
+        </div>
+
+        <!-- Toast notification container -->
+        <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+        <!-- ================================================================== -->
+        <!-- Footer Status Bar                                                  -->
+        <!-- ================================================================== -->
+        <footer class="sticky bottom-0 bg-gray-800 border-t border-gray-700 px-4 py-2 text-sm text-gray-400 flex items-center gap-4 z-40">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span id="filename">No image loaded</span>
+            </div>
+            <div id="save-directory-indicator" class="flex items-center gap-2 hidden">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                <span id="save-directory-path"></span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+                <span id="dimensions">0 × 0</span>
+            </div>
+            <button id="zoom-toggle-btn" class="flex items-center gap-2 px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700 hidden" title="Toggle zoom to fit">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                </svg>
+                <span id="zoom-label">Fit to Page</span>
+                <span id="zoom-scale" class="text-xs text-gray-400"></span>
+            </button>
+            <div class="ml-auto flex items-center gap-4">
+                <a href="/help.html" target="_blank" class="flex items-center gap-1 hover:text-gray-200 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Help</span>
+                </a>
+                <span class="text-xs text-gray-500">v1.0.0</span>
+            </div>
+        </footer>
+
+        <!-- ================================================================== -->
+        <!-- JavaScript Modules                                                 -->
+        <!-- ================================================================== -->
+        <script type="module" src="/js/app.js"></script>
+        <script type="module" src="/js/components/snapshot-carousel.js"></script>
+    </body>
+</html>

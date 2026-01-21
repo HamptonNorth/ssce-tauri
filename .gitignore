@@ -1,0 +1,27 @@
+# Rust / Cargo
+/src-tauri/target/
+**/*.rs.bk
+Cargo.lock
+
+# Build outputs
+/src-tauri/target/
+/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Tauri
+/src-tauri/WixTools/
+/src-tauri/*.pdb
