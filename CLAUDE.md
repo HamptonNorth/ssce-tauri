@@ -180,6 +180,21 @@ Replace HTTP endpoints with Tauri commands:
 - ~~Add a Tauri command to serve `src/config/defaults.js` to the frontend~~ (DONE - `get_defaults_config`)
 - ~~Add a Tauri command to read `.env` settings and expose to frontend~~ (DONE - `get_env_config`)
 
+### Autosave System (Migration Required)
+The autosave/crash recovery system still uses HTTP endpoints from the original Bun server:
+- `/api/autosave` (POST) - Save temp recovery file
+- `/api/autosave-cleanup` (POST) - Delete temp file after successful save
+- `/api/autosave-list` (GET) - List orphaned recovery files on startup
+- `/api/load-ssce` (GET) - Load recovery file
+
+**To implement:** Create Tauri commands to replace these endpoints:
+- `save_autosave(data, filename, directory)` - Write temp .ssce file
+- `delete_autosave(path)` - Delete temp file
+- `list_autosave_files(directory)` - List .ssce files in temp directory
+- Use existing `load_ssce` command for loading
+
+Until implemented, autosave is disabled in Tauri builds.
+
 ### Future Enhancements
 - Bundle `config/defaults.js` with production builds (currently works in dev mode)
 - Add settings UI to edit defaults.js values

@@ -187,6 +187,8 @@ fn get_downloads_dir() -> Result<String, String> {
 struct EnvConfig {
     default_path_image_load: Option<String>,
     default_path_image_save: Option<String>,
+    show_git_hash: bool,
+    git_hash: Option<String>,
 }
 
 /// Read environment settings from .env file
@@ -211,161 +213,60 @@ fn get_env_config() -> Result<EnvConfig, String> {
         })
     };
 
+    // Check if we should show git hash (defaults to true, can be disabled via .env)
+    let show_git_hash = std::env::var("SHOW_GIT_HASH")
+        .map(|v| v.to_lowercase() != "false")
+        .unwrap_or(true);
+
+    // Get git hash from compile-time environment variable
+    let git_hash = if show_git_hash {
+        Some(env!("GIT_HASH").to_string())
+    } else {
+        None
+    };
+
     Ok(EnvConfig {
         default_path_image_load: expand_path(std::env::var("DEFAULT_PATH_IMAGE_LOAD").ok()),
         default_path_image_save: expand_path(std::env::var("DEFAULT_PATH_IMAGE_SAVE").ok()),
+        show_git_hash,
+        git_hash,
     })
 }
 
-/// Load the defaults.js configuration file
-/// Reads from src/config/defaults.js and returns the JavaScript content as JSON
+/// Load the defaults.json configuration file
+/// Reads from src/config/defaults.json and returns the JSON content
 #[tauri::command]
 fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
     // In development, read from the source directory
     // In production, read from the bundled resources
 
     // Try development path first (relative to src-tauri directory)
-    let dev_path = Path::new("../src/config/defaults.js");
+    let dev_path = Path::new("../src/config/defaults.json");
     if dev_path.exists() {
-        let content = fs::read_to_string(dev_path)
-            .map_err(|e| format!("Failed to read defaults.js: {}", e))?;
-        return parse_js_config(&content);
+        return fs::read_to_string(dev_path)
+            .map_err(|e| format!("Failed to read defaults.json: {}", e));
+    }
+
+    // Try Linux production path: /usr/lib/SSCE Desktop/config/defaults.json
+    let linux_prod_path = Path::new("/usr/lib/SSCE Desktop/config/defaults.json");
+    if linux_prod_path.exists() {
+        return fs::read_to_string(linux_prod_path)
+            .map_err(|e| format!("Failed to read defaults.json: {}", e));
     }
 
     // Try production path (bundled with app) using Tauri v2 API
-    let resource_path = app_handle.path().resource_dir()
-        .map_err(|e| format!("Failed to get resource dir: {}", e))?
-        .join("config/defaults.js");
-
-    if resource_path.exists() {
-        let content = fs::read_to_string(&resource_path)
-            .map_err(|e| format!("Failed to read defaults.js: {}", e))?;
-        return parse_js_config(&content);
+    // Tauri bundles resources into the resource_dir
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        // Try direct path first
+        let direct_path = resource_dir.join("config/defaults.json");
+        if direct_path.exists() {
+            return fs::read_to_string(&direct_path)
+                .map_err(|e| format!("Failed to read defaults.json: {}", e));
+        }
     }
 
     // Fallback: return error to trigger frontend fallback
-    Err("defaults.js not found".to_string())
-}
-
-/// Parse a JavaScript config file and extract the default export as JSON
-/// This is a simple parser that extracts the object from "export default { ... }"
-fn parse_js_config(content: &str) -> Result<String, String> {
-    // Find "export default" and extract the object
-    // The JS file format is: export default { ... };
-
-    // Remove single-line comments
-    let lines: Vec<&str> = content.lines()
-        .map(|line| {
-            if let Some(pos) = line.find("//") {
-                &line[..pos]
-            } else {
-                line
-            }
-        })
-        .collect();
-    let cleaned = lines.join("\n");
-
-    // Find the start of the object after "export default"
-    if let Some(start) = cleaned.find("export default") {
-        let after_export = &cleaned[start + 14..]; // Skip "export default"
-
-        // Find the opening brace
-        if let Some(brace_start) = after_export.find('{') {
-            let object_start = start + 14 + brace_start;
-
-            // Find matching closing brace by counting braces
-            let mut depth = 0;
-            let mut end_pos = 0;
-            for (i, c) in cleaned[object_start..].chars().enumerate() {
-                match c {
-                    '{' => depth += 1,
-                    '}' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            end_pos = object_start + i + 1;
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            if end_pos > 0 {
-                let object_str = &cleaned[object_start..end_pos];
-                // Convert JS object to JSON (add quotes to keys, handle trailing commas)
-                return convert_js_to_json(object_str);
-            }
-        }
-    }
-
-    Err("Could not parse defaults.js".to_string())
-}
-
-/// Convert JavaScript object notation to valid JSON
-fn convert_js_to_json(js: &str) -> Result<String, String> {
-    let mut json = String::new();
-    let mut in_string = false;
-    let mut in_key = false;
-    let mut key_start = false;
-
-    let chars: Vec<char> = js.chars().collect();
-    let mut i = 0;
-
-    while i < chars.len() {
-        let c = chars[i];
-
-        match c {
-            '"' if !in_string || (i > 0 && chars[i-1] != '\\') => {
-                in_string = !in_string;
-                json.push(c);
-            }
-            ':' if !in_string => {
-                if key_start {
-                    json.push('"');
-                    key_start = false;
-                }
-                in_key = false;
-                json.push(c);
-            }
-            '{' | '[' if !in_string => {
-                json.push(c);
-                in_key = c == '{';
-            }
-            '}' | ']' if !in_string => {
-                // Remove trailing comma before closing brace/bracket
-                let trimmed = json.trim_end();
-                if trimmed.ends_with(',') {
-                    json = trimmed[..trimmed.len()-1].to_string();
-                }
-                json.push(c);
-                in_key = false;
-            }
-            ',' if !in_string => {
-                if key_start {
-                    json.push('"');
-                    key_start = false;
-                }
-                json.push(c);
-                in_key = true;
-            }
-            c if c.is_alphabetic() && !in_string && in_key && !key_start => {
-                // Start of unquoted key - add opening quote
-                json.push('"');
-                json.push(c);
-                key_start = true;
-            }
-            _ => {
-                json.push(c);
-            }
-        }
-        i += 1;
-    }
-
-    // Validate it's valid JSON
-    match serde_json::from_str::<serde_json::Value>(&json) {
-        Ok(_) => Ok(json),
-        Err(e) => Err(format!("Invalid JSON after conversion: {} - JSON was: {}", e, &json[..json.len().min(200)]))
-    }
+    Err("defaults.json not found in dev or production paths".to_string())
 }
 
 fn main() {

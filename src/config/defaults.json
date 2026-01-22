@@ -1,0 +1,111 @@
+{
+  "tools": {
+    "arrow": {
+      "colour": "#FF0000",
+      "lineStyle": "solid",
+      "lineWidth": 2,
+      "lineWidthPreset": "sm",
+      "arrowheadStyle": "standard",
+      "arrowheadSize": 1.0,
+      "doubleEnded": false
+    },
+    "line": {
+      "colour": "#FF0000",
+      "lineStyle": "solid",
+      "lineWidth": 2,
+      "lineWidthPreset": "sm"
+    },
+    "text": {
+      "colour": "#FF0000",
+      "size": "md"
+    },
+    "shape": {
+      "borderColour": "#FF0000",
+      "fillColour": "transparent",
+      "borderWidthPreset": "md",
+      "cornerStyle": "square"
+    },
+    "steps": {
+      "colour": "#FF0000",
+      "size": "md"
+    },
+    "symbols": {
+      "size": "md"
+    },
+    "highlight": {
+      "colour": "#FFFF00",
+      "opacity": 0.4
+    },
+    "borders": {
+      "width": 4,
+      "colour": "#333333",
+      "radius": 0
+    }
+  },
+  "palette": {
+    "colours": [
+      "#FFFFFF",
+      "#000000",
+      "#FF0000",
+      "#00FF00",
+      "#0000FF",
+      "#FFFF00"
+    ]
+  },
+  "canvas": {
+    "background": "#CCCCCC",
+    "transparentGrid": "#E0E0E0"
+  },
+  "lineWidthPresets": {
+    "xs": 1,
+    "sm": 2,
+    "md": 4,
+    "lg": 8,
+    "xl": 11
+  },
+  "dashGapMultipliers": {
+    "xs": 1.0,
+    "sm": 1.0,
+    "md": 0.8,
+    "lg": 0.6,
+    "xl": 0.4
+  },
+  "textSizes": {
+    "xs": { "fontSize": 12, "fontWeight": 400 },
+    "sm": { "fontSize": 16, "fontWeight": 500 },
+    "md": { "fontSize": 20, "fontWeight": 600 },
+    "lg": { "fontSize": 28, "fontWeight": 700 }
+  },
+  "textLineHeight": 1.2,
+  "arrowheadStyles": {
+    "standard": {
+      "name": "Standard",
+      "angle": 22.5,
+      "lengthRatio": 0.15
+    },
+    "wide": {
+      "name": "Wide",
+      "angle": 35,
+      "lengthRatio": 0.12
+    },
+    "narrow": {
+      "name": "Narrow",
+      "angle": 15,
+      "lengthRatio": 0.18
+    }
+  },
+  "symbols": ["⛔", "🚫", "🔑", "🔒", "🔓", "❌", "✔", "🟢", "⚫", "🇦🇽", "🇬🇧", "🙂", "🚹", "🚺", "🚻"],
+  "steps": ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"],
+  "resizeLimits": {
+    "warning": 1920,
+    "error": 3840
+  },
+  "autosave": {
+    "enabled": true,
+    "inactivitySeconds": 30,
+    "tempDirectory": ".ssce-temp"
+  },
+  "user": {
+    "initials": ""
+  }
+}

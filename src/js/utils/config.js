@@ -21,7 +21,7 @@ let loaded = false;
  * @returns {boolean} True if running in Tauri
  */
 function isTauri() {
-  return typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
+  return typeof window !== "undefined" && window.__TAURI__ !== undefined;
 }
 
 /**
@@ -34,13 +34,17 @@ export async function loadConfig() {
 
   try {
     if (isTauri()) {
-      // Load via Tauri command
-      const { invoke } = await import("@tauri-apps/api/core");
+      // Load via Tauri command using global API (requires withGlobalTauri: true)
+      const invoke = window.__TAURI__.core.invoke;
+      console.log("SSCE Config: Loading defaults via Tauri...");
       const jsonStr = await invoke("get_defaults_config");
       defaults = JSON.parse(jsonStr);
+      console.log("SSCE Config: defaults loaded:", Object.keys(defaults));
 
       // Also load environment config
+      console.log("SSCE Config: Loading env config...");
       envConfig = await invoke("get_env_config");
+      console.log("SSCE Config: envConfig:", envConfig);
     } else {
       // Fallback for browser development (fetch from API if available)
       const response = await fetch("/api/defaults");
@@ -73,6 +77,21 @@ export function getEnvConfig() {
  */
 export function getDefaultImageLoadPath() {
   return envConfig?.default_path_image_load ?? null;
+}
+
+/**
+ * Update window title and version display with git hash if enabled
+ * Call after loadConfig()
+ */
+export function updateWindowTitleWithGitHash() {
+  if (envConfig?.show_git_hash && envConfig?.git_hash) {
+    document.title = `SSCE Desktop [${envConfig.git_hash}]`;
+    // Also update the version element in the footer
+    const versionEl = document.getElementById("app-version");
+    if (versionEl) {
+      versionEl.textContent = `v1.0.1 [${envConfig.git_hash}]`;
+    }
+  }
 }
 
 /**

@@ -31,7 +31,7 @@
 export { showAlertModal, showConfirmModal, showChoiceModal } from "./alert-confirm.js";
 
 // File dialogs
-export { showSaveAsDialog, showSaveOptionsDialog } from "./file-dialogs.js";
+export { showSaveOptionsDialog } from "./file-dialogs.js";
 import { initFileDialogs } from "./file-dialogs.js";
 
 // Image operation dialogs

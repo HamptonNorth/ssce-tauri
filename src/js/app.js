@@ -32,9 +32,9 @@ import { initToolbarEvents, setActiveTool } from "./ui/toolbar.js";
 import { initKeyboardShortcuts } from "./keyboard.js";
 import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, updateUndoRedoButtons, setDirectoryConfig, saveAsSsce } from "./file-operations.js";
 import * as tauriBridge from "./tauri-bridge.js";
-import { initDialogs, showSaveAsDialog, showSaveOptionsDialog, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
+import { initDialogs, showSaveOptionsDialog, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
-import { loadConfig, getToolConfig, getSymbols, getSteps } from "./utils/config.js";
+import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithGitHash } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
 import { initSsceSession, addSnapshot, getSnapshots, setFrontMatter } from "./ssce-file-ops.js";
 import { serialize, deserialize, createSnapshot } from "./utils/ssce-format.js";
@@ -57,7 +57,17 @@ import { downloadSnapshotHtml } from "./utils/snapshot-viewer-export.js";
 async function init() {
   console.log("SSCE: Initializing...");
 
-  // Load configuration from server
+  // Load tool defaults configuration first (from defaults.json and .env)
+  try {
+    await loadConfig();
+    console.log("SSCE: Tool defaults loaded");
+    // Update window title with git hash if enabled in .env
+    updateWindowTitleWithGitHash();
+  } catch (err) {
+    console.error("SSCE: Failed to load tool defaults, using fallbacks", err);
+  }
+
+  // Build state.config from loaded defaults and env config
   try {
     state.config = await loadColours();
     console.log("SSCE: Configuration loaded", state.config);
@@ -74,14 +84,6 @@ async function init() {
         yellow: "#FFFF00",
       },
     };
-  }
-
-  // Load tool defaults configuration
-  try {
-    await loadConfig();
-    console.log("SSCE: Tool defaults loaded");
-  } catch (err) {
-    console.error("SSCE: Failed to load tool defaults, using fallbacks", err);
   }
 
   // Configure directory defaults for Tauri file dialogs
@@ -202,15 +204,20 @@ async function init() {
   });
 
   // Check for recovery files from previous crash
-  await checkRecoveryFiles();
+  // Disabled in Tauri - requires HTTP endpoints not yet migrated
+  // await checkRecoveryFiles();
 
   // Initialize auto-save system
-  initAutoSave({
-    enabled: true,
-    inactivitySeconds: 30,
-    tempDirectory: ".ssce-temp",
-    maxTempFiles: 10,
-  });
+  // Disabled in Tauri - requires HTTP endpoints not yet migrated
+  // TODO: Implement Tauri commands for autosave (see CLAUDE.md)
+  if (!tauriBridge.isTauri()) {
+    initAutoSave({
+      enabled: true,
+      inactivitySeconds: 30,
+      tempDirectory: ".ssce-temp",
+      maxTempFiles: 10,
+    });
+  }
 
   // Update UI state
   updateUndoRedoButtons();
@@ -603,8 +610,8 @@ async function handleExportPng(updateStatusBar) {
     return;
   }
 
-  // Show the standard Save As dialog for PNG export
-  showSaveAsDialog();
+  // Use the standard Save As functionality for PNG export
+  handleSaveAs(updateStatusBar);
 }
 
 /**

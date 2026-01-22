@@ -2,23 +2,48 @@
  * SSCE - Colour Utilities
  *
  * Handles loading and managing the colour palette from configuration.
- * Palette colours are defined in config/defaults.js and loaded via config.js.
+ * Palette colours are defined in config/defaults.json and loaded via config.js.
  */
 
-import { getPaletteColours as getConfigPaletteColours } from "./config.js";
+import { getPaletteColours as getConfigPaletteColours, getDefaults, getEnvConfig } from "./config.js";
 
 /**
- * Load colour configuration from server (.env settings)
+ * Load colour and path configuration
+ * Combines env config (paths) with defaults (UI settings)
  * @returns {Promise<Object>} Configuration object
  */
 export async function loadColours() {
-  const response = await fetch("/api/config");
+  // Get environment config (paths from .env)
+  const envConfig = getEnvConfig();
 
-  if (!response.ok) {
-    throw new Error(`Failed to load config: ${response.status}`);
-  }
+  // Get defaults (UI settings from defaults.json)
+  const defaults = getDefaults();
 
-  return await response.json();
+  // Build config object matching expected structure
+  return {
+    // Paths from .env
+    defaultPathImageLoad: envConfig?.default_path_image_load || null,
+    defaultPathImageSave: envConfig?.default_path_image_save || null,
+
+    // Colours from defaults
+    colours: defaults?.palette?.colours || {
+      white: "#FFFFFF",
+      black: "#000000",
+      red: "#FF0000",
+      green: "#00FF00",
+      blue: "#0000FF",
+      yellow: "#FFFF00",
+    },
+
+    // Resize limits from defaults
+    resizeWarningTrigger: defaults?.resizeLimits?.warning || 1920,
+    resizeErrorTrigger: defaults?.resizeLimits?.error || 3840,
+
+    // Border defaults
+    borderWidth: defaults?.tools?.borders?.width || 4,
+    borderColour: defaults?.tools?.borders?.colour || "#333333",
+    borderRadius: defaults?.tools?.borders?.radius || 0,
+  };
 }
 
 /**
