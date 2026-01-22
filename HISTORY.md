@@ -176,8 +176,9 @@ Added platform-specific icon files for application branding.
 - config.js updates footer with git hash when loaded
 - build.rs embeds git hash at compile time
 
-**Production Path Fix:**
-- Added explicit `/usr/lib/SSCE Desktop/config/defaults.json` path in main.rs
+**Production Path Fix (Cross-Platform):**
+- Use Tauri `resource_dir()` for cross-platform config loading (Windows/macOS/Linux)
+- Added Linux-specific `/usr/lib/` fallback with `#[cfg(target_os = "linux")]`
 - defaults.json bundled as Tauri resource
 
 **Other Fixes:**
@@ -189,7 +190,7 @@ Added platform-specific icon files for application branding.
 - `src-tauri/tauri.conf.json` - withGlobalTauri, resources bundle
 - `src-tauri/Cargo.toml` - devtools feature, authors field
 - `src-tauri/build.rs` - git hash with rerun-if-changed
-- `src-tauri/src/main.rs` - Linux production config path
+- `src-tauri/src/main.rs` - cross-platform config path handling
 - `src/js/utils/config.js` - global Tauri API, debug logging
 - `src/js/utils/colours.js` - removed HTTP dependency
 - `src/js/app.js` - init order, disable autosave in Tauri
