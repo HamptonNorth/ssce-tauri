@@ -247,20 +247,22 @@ fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
             .map_err(|e| format!("Failed to read defaults.json: {}", e));
     }
 
-    // Try Linux production path: /usr/lib/SSCE Desktop/config/defaults.json
-    let linux_prod_path = Path::new("/usr/lib/SSCE Desktop/config/defaults.json");
-    if linux_prod_path.exists() {
-        return fs::read_to_string(linux_prod_path)
-            .map_err(|e| format!("Failed to read defaults.json: {}", e));
+    // Try production path (bundled with app) using Tauri v2 API
+    // This works cross-platform (Linux, Windows, macOS)
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        let resource_path = resource_dir.join("config/defaults.json");
+        if resource_path.exists() {
+            return fs::read_to_string(&resource_path)
+                .map_err(|e| format!("Failed to read defaults.json: {}", e));
+        }
     }
 
-    // Try production path (bundled with app) using Tauri v2 API
-    // Tauri bundles resources into the resource_dir
-    if let Ok(resource_dir) = app_handle.path().resource_dir() {
-        // Try direct path first
-        let direct_path = resource_dir.join("config/defaults.json");
-        if direct_path.exists() {
-            return fs::read_to_string(&direct_path)
+    // Try Linux-specific production path (deb package location)
+    #[cfg(target_os = "linux")]
+    {
+        let linux_prod_path = Path::new("/usr/lib/SSCE Desktop/config/defaults.json");
+        if linux_prod_path.exists() {
+            return fs::read_to_string(linux_prod_path)
                 .map_err(|e| format!("Failed to read defaults.json: {}", e));
         }
     }
