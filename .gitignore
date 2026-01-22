@@ -25,3 +25,6 @@ npm-debug.log*
 # Tauri
 /src-tauri/WixTools/
 /src-tauri/*.pdb
+
+# Environment (user-specific settings)
+.env

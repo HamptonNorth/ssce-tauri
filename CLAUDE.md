@@ -29,6 +29,8 @@ The maintainer has **limited Rust experience**. When making changes to Rust code
 ssce-tauri/
 ├── src/                      # Web content (SSCE frontend)
 │   ├── index.html            # Main application
+│   ├── config/
+│   │   └── defaults.js       # UI configuration (colours, tools, presets)
 │   ├── js/                   # JavaScript modules
 │   │   ├── app.js            # Coordinator
 │   │   ├── state.js          # State management
@@ -45,10 +47,33 @@ ssce-tauri/
 │   ├── icons/                # Application icons
 │   └── src/
 │       └── main.rs           # Rust entry point
+├── .env                      # Environment config (paths) - not in git
+├── .env.sample               # Environment config template
 ├── CLAUDE.md                 # This file
 ├── MIGRATION_TO_TAURI.md     # Migration guide
 └── CHEAT_SHEET.md            # Command reference
 ```
+
+## Configuration Architecture
+
+Configuration is split between two files:
+
+### `.env` - Environment Settings
+User/machine-specific settings that vary between installations:
+- `DEFAULT_PATH_IMAGE_LOAD` - Default directory for Open dialog
+- `DEFAULT_PATH_IMAGE_SAVE` - Default directory for Save dialog
+
+### `src/config/defaults.js` - UI Configuration
+Application defaults for tools and UI (same across all installations):
+- **Tool defaults** - colours, line styles, sizes for each tool
+- **Colour palette** - the 6 swatch colours
+- **Presets** - line widths, text sizes, arrowhead styles
+- **Symbols/Steps** - emoji characters for annotation tools
+- **Canvas settings** - background colour, transparency grid
+- **Resize limits** - warning/error thresholds
+- **Auto-save settings** - timing and temp directory
+
+The frontend loads `defaults.js` and falls back to hardcoded values in `src/js/utils/config.js` if loading fails. User preferences in localStorage override defaults.
 
 ## Current Status
 
@@ -148,6 +173,16 @@ Replace HTTP endpoints with Tauri commands:
 - Application icons
 - Installer improvements
 - Platform-specific tweaks
+
+## Work Outstanding
+
+### Configs
+- ~~Add a Tauri command to serve `src/config/defaults.js` to the frontend~~ (DONE - `get_defaults_config`)
+- ~~Add a Tauri command to read `.env` settings and expose to frontend~~ (DONE - `get_env_config`)
+
+### Future Enhancements
+- Bundle `config/defaults.js` with production builds (currently works in dev mode)
+- Add settings UI to edit defaults.js values
 
 ## Debugging
 

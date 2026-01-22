@@ -1,7 +1,7 @@
 /**
  * Configuration Management
  *
- * Loads defaults from config/defaults.js and merges with localStorage overrides.
+ * Loads defaults from config/defaults.js via Tauri command and merges with localStorage overrides.
  * All tool options are defined in defaults.js; property cards expose user-editable subset.
  *
  * Future enhancements (arrowhead styles, double-ended arrows, etc.) should:
@@ -13,10 +13,19 @@
 const STORAGE_PREFIX = "ssce_tool_";
 
 let defaults = null;
+let envConfig = null;
 let loaded = false;
 
 /**
- * Load defaults from server (config/defaults.js)
+ * Check if running in Tauri environment
+ * @returns {boolean} True if running in Tauri
+ */
+function isTauri() {
+  return typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
+}
+
+/**
+ * Load defaults from Tauri command (config/defaults.js)
  * Call this once during app initialization
  * @returns {Promise<Object>} The loaded config
  */
@@ -24,11 +33,22 @@ export async function loadConfig() {
   if (loaded) return defaults;
 
   try {
-    const response = await fetch("/api/defaults");
-    if (!response.ok) {
-      throw new Error(`Failed to load config: ${response.status}`);
+    if (isTauri()) {
+      // Load via Tauri command
+      const { invoke } = await import("@tauri-apps/api/core");
+      const jsonStr = await invoke("get_defaults_config");
+      defaults = JSON.parse(jsonStr);
+
+      // Also load environment config
+      envConfig = await invoke("get_env_config");
+    } else {
+      // Fallback for browser development (fetch from API if available)
+      const response = await fetch("/api/defaults");
+      if (!response.ok) {
+        throw new Error(`Failed to load config: ${response.status}`);
+      }
+      defaults = await response.json();
     }
-    defaults = await response.json();
     loaded = true;
     return defaults;
   } catch (error) {
@@ -37,6 +57,30 @@ export async function loadConfig() {
     loaded = true;
     return defaults;
   }
+}
+
+/**
+ * Get environment configuration (paths from .env)
+ * @returns {Object|null} Environment config or null if not loaded
+ */
+export function getEnvConfig() {
+  return envConfig;
+}
+
+/**
+ * Get the default image load path from .env
+ * @returns {string|null} Path or null if not set
+ */
+export function getDefaultImageLoadPath() {
+  return envConfig?.default_path_image_load ?? null;
+}
+
+/**
+ * Get the default image save path from .env
+ * @returns {string|null} Path or null if not set
+ */
+export function getDefaultImageSavePath() {
+  return envConfig?.default_path_image_save ?? null;
 }
 
 /**
