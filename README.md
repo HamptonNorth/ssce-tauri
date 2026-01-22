@@ -93,23 +93,21 @@ Production builds are output to `src-tauri/target/release/bundle/`.
 
 ## Configuration
 
-### Directory Defaults
+### Environment Settings (.env)
 
-Edit `src/js/utils/config.js` to set default directories:
+Copy `.env.sample` to `.env` and edit to set default directories:
 
-```javascript
-// In getFallbackDefaults() or your config server
-{
-  defaultOpenDir: "/home/username/Pictures/screenshots",
-  defaultSaveDir: "/home/username/Pictures/edited"
-}
+```bash
+# Default directories for file dialogs
+DEFAULT_PATH_IMAGE_LOAD=~/Pictures/screenshots
+DEFAULT_PATH_IMAGE_SAVE=~/Pictures/edited
 ```
 
 If not specified, defaults to user's home directory. The app also remembers the last-used directory during each session.
 
-### Tool Defaults
+### UI Defaults (defaults.json)
 
-Tool defaults (colours, symbols, line widths) are configured in the fallback defaults within `src/js/utils/config.js`.
+Tool defaults (colours, symbols, line widths) are configured in `src/config/defaults.json`. This file is bundled with the application and loaded via Tauri command.
 
 ## Keyboard Shortcuts
 
@@ -151,6 +149,8 @@ Tool defaults (colours, symbols, line widths) are configured in the fallback def
 ssce-tauri/
 ├── src/                      # Frontend (vanilla JS + HTML5 Canvas)
 │   ├── index.html            # Main application
+│   ├── config/
+│   │   └── defaults.json     # UI configuration (bundled with app)
 │   ├── js/
 │   │   ├── app.js            # Application coordinator
 │   │   ├── tauri-bridge.js   # Tauri API abstraction
@@ -159,15 +159,19 @@ ssce-tauri/
 │   │   ├── layers.js         # Layer management
 │   │   ├── tools/            # Drawing tools
 │   │   ├── ui/               # UI components
-│   │   └── utils/            # Utilities
+│   │   └── utils/            # Utilities (config.js, colours.js)
 │   └── css/                  # Stylesheets
 ├── src-tauri/                # Tauri/Rust backend
 │   ├── Cargo.toml            # Rust dependencies
 │   ├── tauri.conf.json       # Tauri configuration
+│   ├── build.rs              # Build script (git hash)
 │   ├── capabilities/         # Security permissions
 │   └── src/
 │       └── main.rs           # Rust commands for file I/O
+├── .env.sample               # Environment config template
+├── build-and-install.sh      # Build script for local installation
 ├── CLAUDE.md                 # Development guidance
+├── HISTORY.md                # Development history
 ├── MIGRATION_TO_TAURI.md     # Migration notes from web version
 └── CHEAT_SHEET.md            # Common Tauri commands
 ```
@@ -203,6 +207,8 @@ The Rust backend provides these commands callable from JavaScript:
 | `file_exists` | Check if a file exists |
 | `get_home_dir` | Get user's home directory |
 | `get_downloads_dir` | Get user's downloads directory |
+| `get_defaults_config` | Load UI configuration from defaults.json |
+| `get_env_config` | Load environment settings (.env paths, git hash) |
 
 ## Licence
 

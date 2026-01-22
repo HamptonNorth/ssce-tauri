@@ -135,28 +135,93 @@ Added platform-specific icon files for application branding.
 
 ---
 
+---
+
+## 7. Production Build Fixes and Bun Migration Cleanup
+
+### User Prompt:
+> "App now shows smaller default canvas, file dropdown fails. App inoperable."
+> "Still showing version 1.0.0 and no git hash"
+> "Are there other redundant/incorrect Bun/JS file handling left within the project?"
+
+### Problems Identified:
+1. **Config not loading in production** - `@tauri-apps/api/core` dynamic import fails without bundler
+2. **Bun HTTP endpoints still referenced** - colours.js, autosave.js using `/api/*` endpoints
+3. **showSaveAsDialog export missing** - function never existed, causing JS error
+4. **Git hash not showing** - compile-time embedding not working
+5. **Version hardcoded** - HTML showed v1.0.0
+
+### Implementation Summary:
+
+**Tauri API Access Fix:**
+- Added `withGlobalTauri: true` to tauri.conf.json
+- Changed config.js to use `window.__TAURI__.core.invoke` instead of dynamic import
+- This is required for vanilla JS without a bundler (Vite, etc.)
+
+**Bun Migration - colours.js:**
+- Removed HTTP fetch to `/api/config`
+- Now uses `getDefaults()` and `getEnvConfig()` from config.js
+- Builds config object from already-loaded configuration
+
+**Bun Migration - autosave.js:**
+- Disabled autosave system in Tauri builds (`if (!tauriBridge.isTauri())`)
+- Documented required Tauri commands in CLAUDE.md for future implementation
+
+**JS Export Fix:**
+- Removed non-existent `showSaveAsDialog` from dialogs/index.js
+- Updated app.js to use `handleSaveAs` for PNG export
+
+**Version/Git Hash:**
+- Updated index.html version element with id for dynamic update
+- config.js updates footer with git hash when loaded
+- build.rs embeds git hash at compile time
+
+**Production Path Fix:**
+- Added explicit `/usr/lib/SSCE Desktop/config/defaults.json` path in main.rs
+- defaults.json bundled as Tauri resource
+
+**Other Fixes:**
+- Enabled `devtools` feature in Cargo.toml for release builds
+- Set `authors` in Cargo.toml to fix dpkg maintainer warning
+- Reordered app.js init to load config before colours
+
+**Files Modified:**
+- `src-tauri/tauri.conf.json` - withGlobalTauri, resources bundle
+- `src-tauri/Cargo.toml` - devtools feature, authors field
+- `src-tauri/build.rs` - git hash with rerun-if-changed
+- `src-tauri/src/main.rs` - Linux production config path
+- `src/js/utils/config.js` - global Tauri API, debug logging
+- `src/js/utils/colours.js` - removed HTTP dependency
+- `src/js/app.js` - init order, disable autosave in Tauri
+- `src/js/ui/dialogs/index.js` - removed bad export
+- `src/index.html` - version element with id
+
+---
+
 ## Project Statistics
 
 **Rust Backend:**
-- `main.rs`: ~370 lines
+- `main.rs`: ~290 lines
 - 10 Tauri commands implemented
 
 **JavaScript Frontend:**
-- Unchanged from SSCE (vanilla JS, ES6 modules)
+- Vanilla JS, ES6 modules (no bundler)
 - `tauri-bridge.js`: Bridge module for Tauri API
-- `config.js`: Updated for Tauri configuration loading
+- `config.js`: Configuration loading via Tauri commands
+- `colours.js`: Colour utilities (no HTTP dependencies)
 
 **Configuration:**
-- `.env`: 2 environment variables
-- `defaults.js`: ~200 lines of UI configuration
+- `.env`: 2 environment variables (paths)
+- `defaults.json`: ~80 lines of UI configuration (JSON format)
 
 **Documentation:**
 - `CLAUDE.md`: Project overview and guidance
 - `HISTORY.md`: Development history (this file)
+- `README.md`: User-facing documentation
 - `MIGRATION_TO_TAURI.md`: Migration guide
 - `CHEAT_SHEET.md`: Command reference
 
 ---
 
-*Version: 0.1.0*
+*Version: 1.0.1*
 *Last Updated: January 2026*

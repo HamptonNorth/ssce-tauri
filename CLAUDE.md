@@ -30,26 +30,30 @@ ssce-tauri/
 ├── src/                      # Web content (SSCE frontend)
 │   ├── index.html            # Main application
 │   ├── config/
-│   │   └── defaults.js       # UI configuration (colours, tools, presets)
+│   │   └── defaults.json     # UI configuration (bundled with app)
 │   ├── js/                   # JavaScript modules
 │   │   ├── app.js            # Coordinator
 │   │   ├── state.js          # State management
 │   │   ├── canvas.js         # Canvas rendering
 │   │   ├── layers.js         # Layer management
+│   │   ├── tauri-bridge.js   # Tauri API abstraction
 │   │   ├── tools/            # Drawing tools
 │   │   ├── ui/               # UI modules
-│   │   └── utils/            # Utilities
+│   │   └── utils/            # Utilities (config.js, colours.js, etc.)
 │   └── css/                  # Stylesheets
 ├── src-tauri/                # Tauri/Rust backend
 │   ├── Cargo.toml            # Rust dependencies
-│   ├── tauri.conf.json       # Tauri configuration
+│   ├── tauri.conf.json       # Tauri configuration (withGlobalTauri: true)
+│   ├── build.rs              # Build script (git hash embedding)
 │   ├── capabilities/         # Security permissions
 │   ├── icons/                # Application icons
 │   └── src/
-│       └── main.rs           # Rust entry point
+│       └── main.rs           # Rust entry point + commands
 ├── .env                      # Environment config (paths) - not in git
 ├── .env.sample               # Environment config template
+├── build-and-install.sh      # Build script for local installation
 ├── CLAUDE.md                 # This file
+├── HISTORY.md                # Development history
 ├── MIGRATION_TO_TAURI.md     # Migration guide
 └── CHEAT_SHEET.md            # Command reference
 ```
@@ -63,7 +67,7 @@ User/machine-specific settings that vary between installations:
 - `DEFAULT_PATH_IMAGE_LOAD` - Default directory for Open dialog
 - `DEFAULT_PATH_IMAGE_SAVE` - Default directory for Save dialog
 
-### `src/config/defaults.js` - UI Configuration
+### `src/config/defaults.json` - UI Configuration
 Application defaults for tools and UI (same across all installations):
 - **Tool defaults** - colours, line styles, sizes for each tool
 - **Colour palette** - the 6 swatch colours
@@ -73,7 +77,7 @@ Application defaults for tools and UI (same across all installations):
 - **Resize limits** - warning/error thresholds
 - **Auto-save settings** - timing and temp directory
 
-The frontend loads `defaults.js` and falls back to hardcoded values in `src/js/utils/config.js` if loading fails. User preferences in localStorage override defaults.
+The frontend loads `defaults.json` via Tauri command and falls back to hardcoded values in `src/js/utils/config.js` if loading fails. User preferences in localStorage override defaults.
 
 ## Current Status
 
@@ -83,11 +87,14 @@ The frontend loads `defaults.js` and falls back to hardcoded values in `src/js/u
 - Undo/redo
 - Keyboard shortcuts
 - UI (toolbar, dialogs, property cards)
+- Native file dialogs (open, save)
+- File system access via Rust commands
+- Configuration loading (defaults.json, .env)
+- Git hash version tracking in footer
 
 ### Not Yet Implemented (Tauri-specific)
-- Native file dialogs (currently uses web dialogs)
-- File system access via Rust commands
-- Clipboard integration
+- Autosave/crash recovery (see Work Outstanding below)
+- Native clipboard integration
 - Native menus (optional)
 
 ## Architecture
@@ -104,10 +111,10 @@ The Tauri backend is minimal:
 - Future: Rust commands for file I/O
 
 ### Communication
-Currently minimal. Future implementation:
+Frontend calls Rust commands via the global Tauri API:
 ```javascript
-// JavaScript (frontend)
-import { invoke } from '@tauri-apps/api/core';
+// JavaScript (frontend) - requires withGlobalTauri: true in tauri.conf.json
+const invoke = window.__TAURI__.core.invoke;
 const result = await invoke('save_image', { path, data });
 ```
 
@@ -118,6 +125,8 @@ fn save_image(path: String, data: String) -> Result<(), String> {
     // Implementation
 }
 ```
+
+**Note:** Dynamic imports (`import('@tauri-apps/api/core')`) don't work without a bundler. Use `window.__TAURI__.core.invoke` instead.
 
 ## Development Workflow
 
@@ -196,8 +205,8 @@ The autosave/crash recovery system still uses HTTP endpoints from the original B
 Until implemented, autosave is disabled in Tauri builds.
 
 ### Future Enhancements
-- Bundle `config/defaults.js` with production builds (currently works in dev mode)
-- Add settings UI to edit defaults.js values
+- Add settings UI to edit defaults.json values
+- Native clipboard integration
 
 ## Debugging
 
@@ -224,5 +233,5 @@ Until implemented, autosave is disabled in Tauri builds.
 
 ---
 
-*Version: 0.1.0*
+*Version: 1.0.1*
 *Last Updated: January 2026*
