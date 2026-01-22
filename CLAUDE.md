@@ -233,5 +233,5 @@ Until implemented, autosave is disabled in Tauri builds.
 
 ---
 
-*Version: 1.0.1*
+*Version: 1.0.2*
 *Last Updated: January 2026*

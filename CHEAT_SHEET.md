@@ -249,3 +249,66 @@ RUSTFLAGS="-C link-arg=-fuse-ld=mold" cargo tauri build
 - [Tauri GitHub](https://github.com/tauri-apps/tauri)
 - [Rust Book](https://doc.rust-lang.org/book/)
 - [Cargo Book](https://doc.rust-lang.org/cargo/)
+
+
+To view the progress of your GitHub Actions, you have several options ranging from the standard web interface to the command line.
+
+### 1. The GitHub Web Interface (Most Common)
+
+This is the most direct way to see real-time progress, including which jobs are running and which steps are currently executing.
+
+* **Navigate to the "Actions" Tab:** In your repository, click the **Actions** tab at the top.
+* **Select a Workflow Run:** You will see a list of recent workflow runs. Click on the specific run (usually the one at the top with a yellow spinning icon) to see its details.
+* **The Visualization Graph:** Once inside a run, GitHub displays a live graph showing the dependencies between jobs.
+* **Yellow/Spinning:** Job is in progress.
+* **Green Check:** Job succeeded.
+* **Red X:** Job failed.
+
+
+* **Live Logs:** Click on a specific **Job** in the left sidebar or on the graph to open the log viewer. Here, you can watch the output of each command in real-time as it executes on the runner.
+
+---
+
+### 2. GitHub CLI (`gh`)
+
+If you prefer staying in the terminal, the GitHub CLI provides a powerful way to monitor runs without opening a browser.
+
+* **List Recent Runs:**
+```bash
+gh run list
+
+```
+
+
+* **Watch a Run in Real-Time:**
+To see the live progress of a specific run (or the most recent one), use the `--watch` flag:
+```bash
+gh run view --watch
+
+```
+
+
+This provides an interactive TUI (Terminal User Interface) that updates as the jobs complete.
+
+---
+
+### 3. Pull Request Status
+
+If your Action was triggered by a Pull Request (PR), you don't need to leave the PR page:
+
+* Scroll down to the **"Checks"** section near the merge button.
+* You will see a list of running actions. Click **Details** next to any check to jump directly to the live logs for that specific job.
+
+---
+
+### 4. Advanced Monitoring (API & External)
+
+For enterprise-level monitoring or automation:
+
+* **GitHub API:** Use the `GET /repos/{owner}/{repo}/actions/runs/{run_id}` endpoint to programmatically check the `status` (e.g., `queued`, `in_progress`, `completed`).
+* **VS Code Extension:** The official **GitHub Actions for VS Code** extension adds a panel to your editor sidebar where you can monitor and even trigger workflows directly.
+* **Mobile App:** The GitHub mobile app sends push notifications for failures and allows you to view basic run progress and logs on the go.
+
+> **Pro Tip:** If a job seems "stuck" without output, check the **"Set up job"** step in the logs. Often, the delay is simply the runner provisioning the virtual machine or downloading large Docker images.
+
+**Would you like me to show you how to enable "Debug Logging" to see more detailed progress within your scripts?**
