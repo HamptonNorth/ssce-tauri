@@ -151,8 +151,8 @@ export class SelectTool {
           this.isDragging = true;
           return;
         }
-      } else if (layer.type === "shape") {
-        // Check for rectangle corner handle hit
+      } else if (layer.type === "shape" || layer.type === "highlight") {
+        // Check for rectangle corner handle hit (shapes and highlights have same structure)
         const { x: rx, y: ry, width: rw, height: rh } = layer.data;
         this.rectHandles.setRect(rx, ry, rw, rh);
         const hitHandle = this.rectHandles.hitTest(x, y);
@@ -206,7 +206,7 @@ export class SelectTool {
           const layer = layers[idx];
           if (layer.type === "arrow" || layer.type === "line") {
             return { startX: layer.data.startX, startY: layer.data.startY };
-          } else if (layer.type === "text" || layer.type === "step" || layer.type === "symbol" || layer.type === "shape") {
+          } else if (layer.type === "text" || layer.type === "step" || layer.type === "symbol" || layer.type === "shape" || layer.type === "highlight") {
             return { x: layer.data.x, y: layer.data.y };
           } else if (layer.type === "image") {
             return { x: layer.data.x || 0, y: layer.data.y || 0 };
@@ -268,9 +268,9 @@ export class SelectTool {
         }
       }
     } else if (this.activeRectHandle && this.selectedLayerIndices.length === 1) {
-      // Resizing a rectangle by dragging corner
+      // Resizing a rectangle/highlight by dragging corner
       const layer = layers[this.selectedLayerIndices[0]];
-      if (layer.type === "shape" && this.rectOriginal) {
+      if ((layer.type === "shape" || layer.type === "highlight") && this.rectOriginal) {
         const orig = this.rectOriginal;
         let newX = orig.x;
         let newY = orig.y;
@@ -322,7 +322,7 @@ export class SelectTool {
           layer.data.startY = startPos.startY + dy;
           layer.data.endX = layer.data.startX + deltaX;
           layer.data.endY = layer.data.startY + deltaY;
-        } else if (layer.type === "text" || layer.type === "step" || layer.type === "symbol" || layer.type === "shape") {
+        } else if (layer.type === "text" || layer.type === "step" || layer.type === "symbol" || layer.type === "shape" || layer.type === "highlight") {
           layer.data.x = startPos.x + dx;
           layer.data.y = startPos.y + dy;
         } else if (layer.type === "image") {
@@ -445,8 +445,8 @@ export class SelectTool {
 
       // Bounding box: x,y is top-left corner, symbol extends right and down
       return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y - hitMargin && y <= layer.data.y + height + hitMargin;
-    } else if (layer.type === "shape") {
-      // Bounding box for rectangle shape
+    } else if (layer.type === "shape" || layer.type === "highlight") {
+      // Bounding box for rectangle shape or highlight
       return x >= layer.data.x - hitMargin && x <= layer.data.x + layer.data.width + hitMargin && y >= layer.data.y - hitMargin && y <= layer.data.y + layer.data.height + hitMargin;
     } else if (layer.type === "image") {
       // Check if point is within image bounds
@@ -615,7 +615,7 @@ export class SelectTool {
         const height = fontSize;
 
         ctx.strokeRect(layer.data.x - 5, layer.data.y - 5, width + 10, height + 10);
-      } else if (layer.type === "shape") {
+      } else if (layer.type === "shape" || layer.type === "highlight") {
         // Draw corner handles for single selection, bounding box for multi-select
         if (this.selectedLayerIndices.length === 1) {
           // Use shared drag handles utility for corners
@@ -674,7 +674,7 @@ export class SelectTool {
       } else if (layer.type === "symbol") {
         layer.data.x += dx;
         layer.data.y += dy;
-      } else if (layer.type === "shape") {
+      } else if (layer.type === "shape" || layer.type === "highlight") {
         layer.data.x += dx;
         layer.data.y += dy;
       } else if (layer.type === "image") {
