@@ -1,11 +1,14 @@
 /**
  * Clipboard Operations
  * Handles paste from clipboard, copy to clipboard, and flatten layers
+ *
+ * Uses native Tauri clipboard when available, falls back to browser Clipboard API.
  */
 
 import { state, modules } from "./state.js";
 import { showToast } from "./utils/toast.js";
 import { getTextSize } from "./utils/config.js";
+import * as tauriBridge from "./tauri-bridge.js";
 
 // ============================================================================
 // Clipboard Operations
@@ -13,11 +16,27 @@ import { getTextSize } from "./utils/config.js";
 
 /**
  * Handle paste from clipboard via menu or keyboard shortcut
+ * Uses Tauri native clipboard in desktop app, browser API otherwise.
  * @param {Function} loadImageFile - Callback to load an image file
  * @param {Function} showPastePositionDialog - Callback to show paste position dialog
  */
 export async function handlePasteFromClipboard(loadImageFile, showPastePositionDialog) {
   try {
+    // Try Tauri native clipboard first
+    if (tauriBridge.isTauri()) {
+      const imageDataUrl = await tauriBridge.readImageFromClipboard();
+
+      if (imageDataUrl) {
+        await handlePastedImageDataUrl(imageDataUrl, loadImageFile, showPastePositionDialog);
+        return;
+      }
+
+      // No image in native clipboard
+      showToast("No image found in clipboard", "error");
+      return;
+    }
+
+    // Fallback to browser Clipboard API
     const clipboardItems = await navigator.clipboard.read();
 
     for (const item of clipboardItems) {
@@ -55,7 +74,40 @@ export async function handlePasteFromClipboard(loadImageFile, showPastePositionD
 }
 
 /**
+ * Handle a pasted image from data URL
+ * @param {string} dataUrl - Image data URL
+ * @param {Function} loadImageFile - Callback to load an image file
+ * @param {Function} showPastePositionDialog - Callback to show paste position dialog
+ */
+async function handlePastedImageDataUrl(dataUrl, loadImageFile, showPastePositionDialog) {
+  const img = new Image();
+
+  img.onload = () => {
+    if (!modules.layerManager.hasLayers()) {
+      // No image loaded - convert to file and load
+      fetch(dataUrl)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], "pasted-image.png", { type: "image/png" });
+          loadImageFile(file);
+        });
+    } else {
+      // Already have an image - prompt for position
+      state.pendingPasteImage = img;
+      showPastePositionDialog();
+    }
+  };
+
+  img.onerror = () => {
+    showToast("Failed to load pasted image", "error");
+  };
+
+  img.src = dataUrl;
+}
+
+/**
  * Handle copy to clipboard via menu or keyboard shortcut
+ * Uses Tauri native clipboard in desktop app, browser API otherwise.
  */
 export async function handleCopyToClipboard() {
   if (!modules.layerManager.hasLayers()) {
@@ -66,22 +118,44 @@ export async function handleCopyToClipboard() {
   try {
     const imageData = modules.canvasManager.toDataURL();
 
-    // Convert data URL to blob
-    const response = await fetch(imageData);
-    const blob = await response.blob();
+    // Try Tauri native clipboard first
+    if (tauriBridge.isTauri()) {
+      const success = await tauriBridge.writeImageToClipboard(imageData);
 
-    // Copy to clipboard
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        [blob.type]: blob,
-      }),
-    ]);
+      if (success) {
+        showToast("Image copied to clipboard", "success");
+      } else {
+        // Fall back to browser API
+        await copyToClipboardBrowser(imageData);
+      }
+      return;
+    }
 
-    showToast("Image copied to clipboard", "success");
+    // Use browser Clipboard API
+    await copyToClipboardBrowser(imageData);
   } catch (err) {
     console.error("Copy error:", err);
     showToast("Failed to copy: " + err.message, "error");
   }
+}
+
+/**
+ * Copy image to clipboard using browser Clipboard API
+ * @param {string} imageData - Image data URL
+ */
+async function copyToClipboardBrowser(imageData) {
+  // Convert data URL to blob
+  const response = await fetch(imageData);
+  const blob = await response.blob();
+
+  // Copy to clipboard
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      [blob.type]: blob,
+    }),
+  ]);
+
+  showToast("Image copied to clipboard", "success");
 }
 
 /**

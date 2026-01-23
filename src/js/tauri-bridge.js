@@ -489,3 +489,89 @@ export async function listAutosaveFiles(directory) {
     return [];
   }
 }
+
+// ============================================================================
+// Clipboard Functions
+// ============================================================================
+
+/**
+ * Get the Tauri clipboard API from global API
+ * @returns {Object|null}
+ */
+function getClipboard() {
+  return window.__TAURI__?.clipboardManager || null;
+}
+
+/**
+ * Write image to clipboard
+ * @param {string} base64Data - Base64 encoded image data (with or without data URL prefix)
+ * @returns {Promise<boolean>} True if successful
+ */
+export async function writeImageToClipboard(base64Data) {
+  if (!isTauri()) {
+    return false;
+  }
+
+  try {
+    const clipboard = getClipboard();
+    if (!clipboard) throw new Error("Clipboard API not available");
+
+    // Strip data URL prefix if present
+    let imageData = base64Data;
+    if (imageData.includes(",")) {
+      imageData = imageData.split(",")[1];
+    }
+
+    // Use writeImage for PNG data
+    await clipboard.writeImage(imageData);
+    return true;
+  } catch (error) {
+    console.error("writeImageToClipboard failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Read image from clipboard
+ * @returns {Promise<string|null>} Base64 image data URL or null if no image
+ */
+export async function readImageFromClipboard() {
+  if (!isTauri()) {
+    return null;
+  }
+
+  try {
+    const clipboard = getClipboard();
+    if (!clipboard) throw new Error("Clipboard API not available");
+
+    // Read image returns base64 PNG data
+    const imageData = await clipboard.readImage();
+
+    if (imageData && imageData.length > 0) {
+      // Convert to data URL
+      return `data:image/png;base64,${imageData}`;
+    }
+    return null;
+  } catch (error) {
+    // No image in clipboard is not an error, just return null
+    console.log("readImageFromClipboard: No image in clipboard or error:", error.message);
+    return null;
+  }
+}
+
+/**
+ * Check if clipboard has an image
+ * @returns {Promise<boolean>}
+ */
+export async function hasClipboardImage() {
+  if (!isTauri()) {
+    return false;
+  }
+
+  try {
+    const imageData = await readImageFromClipboard();
+    return imageData !== null;
+  } catch {
+    return false;
+  }
+}

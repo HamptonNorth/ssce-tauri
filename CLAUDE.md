@@ -93,9 +93,9 @@ The frontend loads `defaults.json` via Tauri command and falls back to hardcoded
 - Git hash version tracking in footer
 - Autosave and crash recovery
 - Settings editor (JSON text editor for defaults.json)
+- Native clipboard integration (copy/paste images)
 
 ### Not Yet Implemented (Tauri-specific)
-- Native clipboard integration
 - Native menus (optional)
 
 ## Architecture
@@ -211,8 +211,17 @@ Implemented as a JSON text editor accessible via gear icon in top-right toolbar:
 - User config takes priority over bundled defaults
 - "Reset to Defaults" button deletes user config to restore bundled defaults
 
+### Native Clipboard
+~~Native clipboard integration~~ (DONE)
+
+Uses `tauri-plugin-clipboard-manager` for native clipboard access:
+- `writeImageToClipboard(base64Data)` - Copy image to system clipboard
+- `readImageFromClipboard()` - Read image from system clipboard as data URL
+- Falls back to browser Clipboard API if Tauri clipboard unavailable
+- Capabilities: `clipboard-manager:allow-read-image`, `clipboard-manager:allow-write-image`
+
 ### Future Enhancements
-- Native clipboard integration
+- Native menus (optional)
 
 ## Debugging
 
