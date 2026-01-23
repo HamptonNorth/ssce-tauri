@@ -34,6 +34,11 @@
         "priority": "optional"
       }
     },
+    "windows": {
+      "wix": {
+        "language": "en-GB"
+      }
+    },
     "publisher": "Claude"
   }
 }
