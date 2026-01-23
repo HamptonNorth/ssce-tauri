@@ -279,6 +279,22 @@ export function getDefaultInitials() {
 }
 
 /**
+ * Get toast duration for non-error messages
+ * @returns {number} Duration in milliseconds
+ */
+export function getToastDuration() {
+  return defaults?.toast?.durationMs ?? 3000;
+}
+
+/**
+ * Get toast duration for error messages
+ * @returns {number} Duration in milliseconds
+ */
+export function getToastErrorDuration() {
+  return defaults?.toast?.errorDurationMs ?? 5000;
+}
+
+/**
  * Fallback defaults if server request fails
  * Matches structure of defaults.js
  */
@@ -353,6 +369,10 @@ function getFallbackDefaults() {
     },
     symbols: ["⛔", "🚫", "🔑", "🔒", "🔓", "❌", "✔", "🟢", "⚫"],
     steps: ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"],
+    toast: {
+      durationMs: 3000,
+      errorDurationMs: 5000,
+    },
     user: {
       initials: "",
     },

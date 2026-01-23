@@ -2,15 +2,22 @@
  * SSCE - Toast Notification Utility
  *
  * Displays temporary toast notifications for user feedback.
+ * Duration is configurable via defaults.json toast settings.
  */
+
+import { getToastDuration, getToastErrorDuration } from "./config.js";
 
 /**
  * Show a toast notification
  * @param {string} message - Message to display
  * @param {string} type - Type of toast: 'success', 'error', or 'warning'
- * @param {number} duration - Duration in milliseconds (default 3000)
+ * @param {number} duration - Duration in milliseconds (optional, uses config defaults)
  */
-export function showToast(message, type = "success", duration = 3000) {
+export function showToast(message, type = "success", duration = null) {
+  // Use provided duration, or get from config based on type
+  if (duration === null) {
+    duration = type === "error" ? getToastErrorDuration() : getToastDuration();
+  }
   const container = document.getElementById("toast-container");
   if (!container) {
     console.error("Toast container not found");
