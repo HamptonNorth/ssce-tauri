@@ -68,15 +68,19 @@ export class BordersCard extends BasePropertyCard {
       <div class="flex flex-col gap-1">
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-400 w-6">H</span>
-          <input type="range" id="borders-width-h" min="1" max="50" value="${this.borderWidthH}"
+          <input type="range" id="borders-width-h" min="0" max="150" value="${this.borderWidthH}"
                  class="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-          <span id="borders-width-h-value" class="text-xs text-gray-300 w-8">${this.borderWidthH}px</span>
+          <input type="number" id="borders-width-h-input" min="0" max="150" value="${this.borderWidthH}"
+                 class="w-12 h-6 text-xs text-center bg-gray-700 border border-gray-600 rounded text-gray-300">
+          <span class="text-xs text-gray-400">px</span>
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-400 w-6">V</span>
-          <input type="range" id="borders-width-v" min="1" max="50" value="${this.borderWidthV}"
+          <input type="range" id="borders-width-v" min="0" max="150" value="${this.borderWidthV}"
                  class="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-          <span id="borders-width-v-value" class="text-xs text-gray-300 w-8">${this.borderWidthV}px</span>
+          <input type="number" id="borders-width-v-input" min="0" max="150" value="${this.borderWidthV}"
+                 class="w-12 h-6 text-xs text-center bg-gray-700 border border-gray-600 rounded text-gray-300">
+          <span class="text-xs text-gray-400">px</span>
         </div>
         <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer mt-1">
           <input type="checkbox" id="borders-sync" ${this.syncWidths ? "checked" : ""}
@@ -152,52 +156,66 @@ export class BordersCard extends BasePropertyCard {
    * Setup event listeners after render
    */
   setupEventListeners() {
-    // Width sliders
+    // Width sliders and inputs
     const hSlider = this.element.querySelector("#borders-width-h");
-    const hValue = this.element.querySelector("#borders-width-h-value");
+    const hInput = this.element.querySelector("#borders-width-h-input");
     const vSlider = this.element.querySelector("#borders-width-v");
-    const vValue = this.element.querySelector("#borders-width-v-value");
+    const vInput = this.element.querySelector("#borders-width-v-input");
     const syncCheckbox = this.element.querySelector("#borders-sync");
 
+    // Helper to update H value from any source
+    const updateH = (value) => {
+      this.borderWidthH = Math.max(0, Math.min(150, parseInt(value) || 0));
+      if (hSlider) hSlider.value = this.borderWidthH;
+      if (hInput) hInput.value = this.borderWidthH;
+      if (this.syncWidths) {
+        this.borderWidthV = this.borderWidthH;
+        if (vSlider) vSlider.value = this.borderWidthV;
+        if (vInput) vInput.value = this.borderWidthV;
+      }
+      this.updateRadiusMax();
+      this.updateDimensions();
+    };
+
+    // Helper to update V value from any source
+    const updateV = (value) => {
+      this.borderWidthV = Math.max(0, Math.min(150, parseInt(value) || 0));
+      if (vSlider) vSlider.value = this.borderWidthV;
+      if (vInput) vInput.value = this.borderWidthV;
+      if (this.syncWidths) {
+        this.borderWidthH = this.borderWidthV;
+        if (hSlider) hSlider.value = this.borderWidthH;
+        if (hInput) hInput.value = this.borderWidthH;
+      }
+      this.updateRadiusMax();
+      this.updateDimensions();
+    };
+
     if (hSlider) {
-      hSlider.oninput = () => {
-        this.borderWidthH = parseInt(hSlider.value);
-        hValue.textContent = `${this.borderWidthH}px`;
-        if (this.syncWidths) {
-          this.borderWidthV = this.borderWidthH;
-          vSlider.value = this.borderWidthV;
-          vValue.textContent = `${this.borderWidthV}px`;
-        }
-        this.updateRadiusMax();
-        this.updateDimensions();
-      };
+      hSlider.oninput = () => updateH(hSlider.value);
       hSlider.onchange = () => this.notifyChange();
     }
 
+    if (hInput) {
+      hInput.oninput = () => updateH(hInput.value);
+      hInput.onchange = () => this.notifyChange();
+    }
+
     if (vSlider) {
-      vSlider.oninput = () => {
-        this.borderWidthV = parseInt(vSlider.value);
-        vValue.textContent = `${this.borderWidthV}px`;
-        if (this.syncWidths) {
-          this.borderWidthH = this.borderWidthV;
-          hSlider.value = this.borderWidthH;
-          hValue.textContent = `${this.borderWidthH}px`;
-        }
-        this.updateRadiusMax();
-        this.updateDimensions();
-      };
+      vSlider.oninput = () => updateV(vSlider.value);
       vSlider.onchange = () => this.notifyChange();
+    }
+
+    if (vInput) {
+      vInput.oninput = () => updateV(vInput.value);
+      vInput.onchange = () => this.notifyChange();
     }
 
     if (syncCheckbox) {
       syncCheckbox.onchange = () => {
         this.syncWidths = syncCheckbox.checked;
         if (this.syncWidths) {
-          this.borderWidthV = this.borderWidthH;
-          vSlider.value = this.borderWidthV;
-          vValue.textContent = `${this.borderWidthV}px`;
-          this.updateRadiusMax();
-          this.updateDimensions();
+          updateV(this.borderWidthH);
           this.notifyChange();
         }
       };
