@@ -8,7 +8,13 @@
 import { state, modules, persistState } from "./state.js";
 import { showAlertModal, showConfirmModal } from "./ui/dialogs/index.js";
 import { showToast } from "./utils/toast.js";
+import { showSpinner, hideSpinner } from "./utils/spinner.js";
 import * as bridge from "./tauri-bridge.js";
+
+// TESTING: Add artificial delay to file operations to verify spinner visibility
+// TODO: Remove this after spinner testing is complete
+const SPINNER_TEST_DELAY_MS = 5000;
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ============================================================================
 // File Operations
@@ -85,15 +91,20 @@ async function openFileNative(updateStatusBar) {
 async function loadFileFromPath(filePath, updateStatusBar) {
   const isSsce = bridge.isSsceFile(filePath);
 
+  // Clear canvas immediately and show spinner
+  modules.layerManager.clear();
+  modules.canvasManager.render();
+  showSpinner();
+
+  // TESTING: Artificial delay for spinner visibility testing
+  await delay(SPINNER_TEST_DELAY_MS);
+
   try {
     if (isSsce) {
       // Load .ssce file
       const jsonString = await bridge.loadSsce(filePath);
       const { deserialize } = await import("./utils/ssce-format.js");
       const sessionData = await deserialize(jsonString);
-
-      // Clear current state
-      modules.layerManager.clear();
 
       // Restore canvas size
       modules.canvasManager.setSize(sessionData.canvasSize.width, sessionData.canvasSize.height);
@@ -126,39 +137,43 @@ async function loadFileFromPath(filePath, updateStatusBar) {
       const dialogs = await import("./ui/dialogs/index.js");
       dialogs.updateViewSnapshotsButton();
 
+      hideSpinner();
       showToast(`Loaded: ${state.filename}`, "success");
+      if (updateStatusBar) updateStatusBar();
     } else {
       // Load image file
       const dataUrl = await bridge.loadImage(filePath);
 
-      const img = new Image();
-      img.onload = async () => {
-        modules.layerManager.clear();
-        modules.layerManager.addImageLayer(img);
+      // Pre-load the zoom module before entering the callback
+      const zoom = await import("./utils/zoom.js");
 
-        state.filename = bridge.getFilename(filePath);
-        state.currentFilePath = filePath;
-        state.hasUnsavedChanges = false;
-        state.sourceFormat = "image";
+      // Wait for image to load
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Invalid image format"));
+        image.src = dataUrl;
+      });
 
-        modules.canvasManager.render();
+      // Now process the loaded image synchronously
+      modules.layerManager.addImageLayer(img);
 
-        // Auto-fit and update zoom
-        const zoom = await import("./utils/zoom.js");
-        zoom.recalculateZoom(true);
+      state.filename = bridge.getFilename(filePath);
+      state.currentFilePath = filePath;
+      state.hasUnsavedChanges = false;
+      state.sourceFormat = "image";
 
-        showToast(`Loaded: ${state.filename}`, "success");
+      modules.canvasManager.render();
 
-        if (updateStatusBar) updateStatusBar();
-      };
-      img.onerror = async () => {
-        await showAlertModal("Invalid Image", `The file could not be loaded as an image.\n\nIt may be corrupted or not a valid image format.`, "error");
-      };
-      img.src = dataUrl;
+      // Auto-fit and update zoom
+      zoom.recalculateZoom(true);
+
+      hideSpinner();
+      showToast(`Loaded: ${state.filename}`, "success");
+      if (updateStatusBar) updateStatusBar();
     }
-
-    if (updateStatusBar) updateStatusBar();
   } catch (err) {
+    hideSpinner();
     console.error("Load file error:", err);
     await showAlertModal("Load Failed", `Could not load the file.\n\nError: ${err.message}`, "error");
   }
@@ -300,6 +315,9 @@ export async function handleSave(handleSaveAs, updateStatusBar) {
 
   // If we have a current file path and it's not an ssce file being saved as image, save directly
   if (state.currentFilePath && bridge.isTauri()) {
+    showSpinner();
+    // TESTING: Artificial delay for spinner visibility testing
+    await delay(SPINNER_TEST_DELAY_MS);
     try {
       const imageData = modules.canvasManager.toDataURL();
       await bridge.saveImage(state.currentFilePath, imageData);
@@ -312,6 +330,8 @@ export async function handleSave(handleSaveAs, updateStatusBar) {
       console.error("Save error:", err);
       await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
       return;
+    } finally {
+      hideSpinner();
     }
   }
 
@@ -344,26 +364,29 @@ export async function handleSaveAs(updateStatusBar) {
  * @param {Function} updateStatusBar - Callback to update status bar
  */
 async function saveAsNative(updateStatusBar) {
+  // Determine default filename
+  let defaultName = state.filename || "screenshot.png";
+  // Ensure .png extension for images
+  if (!defaultName.toLowerCase().endsWith(".png") && !defaultName.toLowerCase().endsWith(".ssce")) {
+    defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".png";
+  }
+
+  const filePath = await bridge.showSaveDialog({
+    title: "Save Image As",
+    defaultName,
+    filters: [
+      { name: "PNG Image", extensions: ["png"] },
+      { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+
+  if (!filePath) return; // User cancelled
+
+  showSpinner();
+  // TESTING: Artificial delay for spinner visibility testing
+  await delay(SPINNER_TEST_DELAY_MS);
   try {
-    // Determine default filename
-    let defaultName = state.filename || "screenshot.png";
-    // Ensure .png extension for images
-    if (!defaultName.toLowerCase().endsWith(".png") && !defaultName.toLowerCase().endsWith(".ssce")) {
-      defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".png";
-    }
-
-    const filePath = await bridge.showSaveDialog({
-      title: "Save Image As",
-      defaultName,
-      filters: [
-        { name: "PNG Image", extensions: ["png"] },
-        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
-        { name: "All Files", extensions: ["*"] },
-      ],
-    });
-
-    if (!filePath) return; // User cancelled
-
     // Get image data with appropriate format
     const ext = bridge.getExtension(filePath);
     let imageData;
@@ -385,6 +408,8 @@ async function saveAsNative(updateStatusBar) {
   } catch (err) {
     console.error("Save as error:", err);
     await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
+  } finally {
+    hideSpinner();
   }
 }
 
@@ -423,6 +448,9 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
 
     if (!filePath) return { success: false, error: "Cancelled" };
 
+    showSpinner();
+    // TESTING: Artificial delay for spinner visibility testing
+    await delay(SPINNER_TEST_DELAY_MS);
     // Serialize session data
     const { serialize } = await import("./utils/ssce-format.js");
 
@@ -454,6 +482,8 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
     console.error("Save SSCE error:", err);
     await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
     return { success: false, error: err.message };
+  } finally {
+    hideSpinner();
   }
 }
 

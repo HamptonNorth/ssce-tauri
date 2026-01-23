@@ -28,3 +28,6 @@ npm-debug.log*
 
 # Environment (user-specific settings)
 .env
+
+# Build-time generated files
+src/config/build-time.txt
