@@ -288,20 +288,65 @@ fn get_downloads_dir() -> Result<String, String> {
 struct EnvConfig {
     default_path_image_load: Option<String>,
     default_path_image_save: Option<String>,
-    show_git_hash: bool,
-    git_hash: Option<String>,
+    show_build_timestamp: bool,
+    build_timestamp: Option<String>,
 }
 
 /// Read environment settings from .env file
 /// Returns paths with ~ expanded to home directory
+/// Priority: user config dir > bundled > dev path > current directory
 #[tauri::command]
-fn get_env_config() -> Result<EnvConfig, String> {
-    // Try to load .env file from the app's resource directory or current directory
-    let _ = dotenvy::dotenv(); // Ignore error if .env doesn't exist
-
+fn get_env_config(app_handle: tauri::AppHandle) -> Result<EnvConfig, String> {
     let home_dir = dirs::home_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
+
+    // Try to load .env from multiple locations (in priority order)
+    let mut env_loaded = false;
+
+    // 1. User config directory (~/.config/ssce-desktop/.env)
+    if let Ok(user_config_dir) = get_user_config_dir() {
+        let user_env_path = user_config_dir.join(".env");
+        if user_env_path.exists() {
+            let _ = dotenvy::from_path(&user_env_path);
+            env_loaded = true;
+        }
+    }
+
+    // 2. Development path (relative to src-tauri directory)
+    if !env_loaded {
+        let dev_path = Path::new("../.env");
+        if dev_path.exists() {
+            let _ = dotenvy::from_path(dev_path);
+            env_loaded = true;
+        }
+    }
+
+    // 3. Production path (bundled with app) using Tauri v2 API
+    if !env_loaded {
+        if let Ok(resource_dir) = app_handle.path().resource_dir() {
+            let resource_env_path = resource_dir.join(".env");
+            if resource_env_path.exists() {
+                let _ = dotenvy::from_path(&resource_env_path);
+                env_loaded = true;
+            }
+        }
+    }
+
+    // 4. Linux-specific production path (deb package location)
+    #[cfg(target_os = "linux")]
+    if !env_loaded {
+        let linux_prod_path = Path::new("/usr/lib/SSCE Desktop/.env");
+        if linux_prod_path.exists() {
+            let _ = dotenvy::from_path(linux_prod_path);
+            env_loaded = true;
+        }
+    }
+
+    // 5. Fallback: current working directory
+    if !env_loaded {
+        let _ = dotenvy::dotenv();
+    }
 
     // Helper to expand ~ in paths
     let expand_path = |value: Option<String>| -> Option<String> {
@@ -314,14 +359,42 @@ fn get_env_config() -> Result<EnvConfig, String> {
         })
     };
 
-    // Check if we should show git hash (defaults to true, can be disabled via .env)
-    let show_git_hash = std::env::var("SHOW_GIT_HASH")
+    // Check if we should show build timestamp (defaults to true, can be disabled via .env)
+    let show_build_timestamp = std::env::var("SHOW_BUILD_TIMESTAMP")
         .map(|v| v.to_lowercase() != "false")
         .unwrap_or(true);
 
-    // Get git hash from compile-time environment variable
-    let git_hash = if show_git_hash {
-        Some(env!("GIT_HASH").to_string())
+    // Get build timestamp from build-time.txt file (written by build-and-install.sh)
+    let build_timestamp = if show_build_timestamp {
+        // Try multiple locations for build-time.txt
+        let mut time_str: Option<String> = None;
+
+        // 1. Development path (relative to src-tauri directory)
+        let dev_path = Path::new("../src/config/build-time.txt");
+        if dev_path.exists() {
+            time_str = fs::read_to_string(dev_path).ok().map(|s| s.trim().to_string());
+        }
+
+        // 2. Production path (bundled with app)
+        if time_str.is_none() {
+            if let Ok(resource_dir) = app_handle.path().resource_dir() {
+                let resource_path = resource_dir.join("config/build-time.txt");
+                if resource_path.exists() {
+                    time_str = fs::read_to_string(&resource_path).ok().map(|s| s.trim().to_string());
+                }
+            }
+        }
+
+        // 3. Linux-specific production path
+        #[cfg(target_os = "linux")]
+        if time_str.is_none() {
+            let linux_path = Path::new("/usr/lib/SSCE Desktop/config/build-time.txt");
+            if linux_path.exists() {
+                time_str = fs::read_to_string(linux_path).ok().map(|s| s.trim().to_string());
+            }
+        }
+
+        time_str
     } else {
         None
     };
@@ -329,8 +402,8 @@ fn get_env_config() -> Result<EnvConfig, String> {
     Ok(EnvConfig {
         default_path_image_load: expand_path(std::env::var("DEFAULT_PATH_IMAGE_LOAD").ok()),
         default_path_image_save: expand_path(std::env::var("DEFAULT_PATH_IMAGE_SAVE").ok()),
-        show_git_hash,
-        git_hash,
+        show_build_timestamp,
+        build_timestamp,
     })
 }
 

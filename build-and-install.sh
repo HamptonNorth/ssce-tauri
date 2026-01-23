@@ -7,7 +7,15 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/src-tauri"
 
-echo "Building SSCE Desktop..."
+# Capture build time BEFORE building - this gets bundled into the app
+BUILD_TIME=$(date "+%Y-%m-%d %H:%M:%S")
+echo "$BUILD_TIME" > "$SCRIPT_DIR/src/config/build-time.txt"
+
+echo "=========================================="
+echo "Building SSCE Desktop"
+echo "Build timestamp: $BUILD_TIME"
+echo "=========================================="
+
 cargo tauri build --bundles deb
 
 # Find the latest .deb file
@@ -21,4 +29,7 @@ fi
 echo "Installing: $DEB_FILE"
 sudo dpkg -i "$DEB_FILE"
 
+echo "=========================================="
 echo "Done! SSCE Desktop has been updated."
+echo "Build timestamp: $BUILD_TIME"
+echo "=========================================="

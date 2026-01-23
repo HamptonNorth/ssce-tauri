@@ -34,7 +34,7 @@ import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handl
 import * as tauriBridge from "./tauri-bridge.js";
 import { initDialogs, showSaveOptionsDialog, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
-import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithGitHash } from "./utils/config.js";
+import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
 import { initSsceSession, addSnapshot, getSnapshots, setFrontMatter } from "./ssce-file-ops.js";
 import { serialize, deserialize, createSnapshot } from "./utils/ssce-format.js";
@@ -61,8 +61,8 @@ async function init() {
   try {
     await loadConfig();
     console.log("SSCE: Tool defaults loaded");
-    // Update window title with git hash if enabled in .env
-    updateWindowTitleWithGitHash();
+    // Update window title with build timestamp if enabled in .env
+    updateWindowTitleWithBuildTime();
   } catch (err) {
     console.error("SSCE: Failed to load tool defaults, using fallbacks", err);
   }

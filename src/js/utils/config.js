@@ -80,16 +80,16 @@ export function getDefaultImageLoadPath() {
 }
 
 /**
- * Update window title and version display with git hash if enabled
+ * Update window title and version display with build timestamp if enabled
  * Call after loadConfig()
  */
-export function updateWindowTitleWithGitHash() {
-  if (envConfig?.show_git_hash && envConfig?.git_hash) {
-    document.title = `SSCE Desktop [${envConfig.git_hash}]`;
+export function updateWindowTitleWithBuildTime() {
+  if (envConfig?.show_build_timestamp && envConfig?.build_timestamp) {
+    document.title = `SSCE Desktop [${envConfig.build_timestamp}]`;
     // Also update the version element in the footer
     const versionEl = document.getElementById("app-version");
     if (versionEl) {
-      versionEl.textContent = `v1.0.1 [${envConfig.git_hash}]`;
+      versionEl.textContent = `Built: ${envConfig.build_timestamp}`;
     }
   }
 }
@@ -234,24 +234,6 @@ export function getTextSize(size) {
  */
 export function getTextLineHeight() {
   return defaults?.textLineHeight ?? 1.2;
-}
-
-/**
- * Get symbol/step size multiplier for selection boxes
- * Emojis and circled numbers render larger than their fontSize
- * @returns {number} Size multiplier (e.g., 1.2 = 120%)
- */
-export function getSymbolSizeMultiplier() {
-  return defaults?.symbolSizeMultiplier ?? 1.2;
-}
-
-/**
- * Get text top offset ratio for selection boxes
- * With textBaseline='top', glyphs start below y due to font leading
- * @returns {number} Offset as ratio of fontSize (e.g., 0.15 = 15%)
- */
-export function getTextTopOffset() {
-  return defaults?.textTopOffset ?? 0.15;
 }
 
 /**
