@@ -50,6 +50,10 @@ import { initSsceDialogs } from "./ssce-dialogs.js";
 export { showStepsResetDialog, showSymbolPickerDialog } from "./tool-dialogs.js";
 import { initToolDialogs } from "./tool-dialogs.js";
 
+// Settings dialog
+export { showSettingsDialog } from "./settings-dialog.js";
+import { initSettingsDialog } from "./settings-dialog.js";
+
 // ============================================================================
 // Unified Initialization
 // ============================================================================
@@ -94,6 +98,8 @@ export function initDialogs(options) {
   initSsceDialogs();
 
   initToolDialogs();
+
+  initSettingsDialog();
 }
 
 // ============================================================================

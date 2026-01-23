@@ -334,14 +334,28 @@ fn get_env_config() -> Result<EnvConfig, String> {
     })
 }
 
+/// Get the user config directory path for SSCE
+/// Returns ~/.config/ssce-desktop on Linux, AppData on Windows
+fn get_user_config_dir() -> Result<std::path::PathBuf, String> {
+    dirs::config_dir()
+        .map(|p| p.join("ssce-desktop"))
+        .ok_or_else(|| "Could not determine config directory".to_string())
+}
+
 /// Load the defaults.json configuration file
-/// Reads from src/config/defaults.json and returns the JSON content
+/// Priority: user config > bundled config > dev config
 #[tauri::command]
 fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
-    // In development, read from the source directory
-    // In production, read from the bundled resources
+    // First, check for user-customized config
+    if let Ok(user_config_dir) = get_user_config_dir() {
+        let user_config_path = user_config_dir.join("defaults.json");
+        if user_config_path.exists() {
+            return fs::read_to_string(&user_config_path)
+                .map_err(|e| format!("Failed to read user defaults.json: {}", e));
+        }
+    }
 
-    // Try development path first (relative to src-tauri directory)
+    // Try development path (relative to src-tauri directory)
     let dev_path = Path::new("../src/config/defaults.json");
     if dev_path.exists() {
         return fs::read_to_string(dev_path)
@@ -349,7 +363,6 @@ fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
     }
 
     // Try production path (bundled with app) using Tauri v2 API
-    // This works cross-platform (Linux, Windows, macOS)
     if let Ok(resource_dir) = app_handle.path().resource_dir() {
         let resource_path = resource_dir.join("config/defaults.json");
         if resource_path.exists() {
@@ -369,7 +382,40 @@ fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
     }
 
     // Fallback: return error to trigger frontend fallback
-    Err("defaults.json not found in dev or production paths".to_string())
+    Err("defaults.json not found in any config paths".to_string())
+}
+
+/// Save defaults.json to user config directory
+/// This allows user customization without modifying bundled files
+#[tauri::command]
+fn save_defaults_config(data: String) -> Result<String, String> {
+    // Validate JSON before saving
+    let _: serde_json::Value = serde_json::from_str(&data)
+        .map_err(|e| format!("Invalid JSON: {}", e))?;
+
+    let user_config_dir = get_user_config_dir()?;
+
+    // Create config directory if it doesn't exist
+    if !user_config_dir.exists() {
+        fs::create_dir_all(&user_config_dir)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+
+    let config_path = user_config_dir.join("defaults.json");
+    let config_path_str = config_path.to_string_lossy().to_string();
+
+    fs::write(&config_path, &data)
+        .map_err(|e| format!("Failed to write defaults.json: {}", e))?;
+
+    Ok(config_path_str)
+}
+
+/// Get the path where user config would be saved
+#[tauri::command]
+fn get_user_config_path() -> Result<String, String> {
+    let user_config_dir = get_user_config_dir()?;
+    let config_path = user_config_dir.join("defaults.json");
+    Ok(config_path.to_string_lossy().to_string())
 }
 
 fn main() {
@@ -391,6 +437,8 @@ fn main() {
             get_downloads_dir,
             get_env_config,
             get_defaults_config,
+            save_defaults_config,
+            get_user_config_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

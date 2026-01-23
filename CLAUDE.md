@@ -92,6 +92,7 @@ The frontend loads `defaults.json` via Tauri command and falls back to hardcoded
 - Configuration loading (defaults.json, .env)
 - Git hash version tracking in footer
 - Autosave and crash recovery
+- Settings editor (JSON text editor for defaults.json)
 
 ### Not Yet Implemented (Tauri-specific)
 - Native clipboard integration
@@ -200,8 +201,17 @@ Implemented Tauri commands:
 
 Temp files are stored in `~/.ssce-temp/` with format `autosave_{sessionId}_{filename}.ssce`
 
+### Settings UI
+~~Add settings UI to edit defaults.json values~~ (DONE)
+
+Implemented as a JSON text editor accessible via gear icon in top-right toolbar:
+- `save_defaults_config(data)` - Save config to user directory
+- `get_user_config_path()` - Get path where user config is saved
+- User config saved to `~/.config/ssce-desktop/defaults.json` (Linux) or AppData (Windows)
+- User config takes priority over bundled defaults
+- "Reset to Defaults" button deletes user config to restore bundled defaults
+
 ### Future Enhancements
-- Add settings UI to edit defaults.json values
 - Native clipboard integration
 
 ## Debugging
