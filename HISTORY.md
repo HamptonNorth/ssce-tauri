@@ -199,11 +199,69 @@ Added platform-specific icon files for application branding.
 
 ---
 
+## 8. Build Timestamp, Loading Spinner, and System Tray
+
+### Session Date: January 2026
+
+### Implementation Summary:
+
+**Build Timestamp (replacing Git Hash):**
+The git hash approach had issues with incremental builds not triggering rebuilds. Replaced with build timestamp for easier identification of production builds.
+
+- `build-and-install.sh` generates `build-time.txt` before building
+- Removed git hash logic from `build.rs`
+- `main.rs` reads `build-time.txt` from multiple locations (dev, bundled, Linux production)
+- Improved `.env` loading with priority order: user config > dev > bundled > fallback
+- Renamed `SHOW_GIT_HASH` to `SHOW_BUILD_TIMESTAMP` in `.env`
+- Footer displays "Built: YYYY-MM-DD HH:MM:SS" format
+
+**Loading Spinner:**
+Visual feedback during file operations (open/save).
+
+- Created `src/js/utils/spinner.js` with `showSpinner()`, `hideSpinner()`, `withSpinner()` utilities
+- Added CSS overlay and spinner animation to `src/css/app.css`
+- Added `#loading-overlay` element to `src/index.html`
+- Integrated into `file-operations.js` for load, save, save-as, and save-as-ssce flows
+- Canvas clears immediately on load for better perceived responsiveness
+- Refactored image loading to use Promise-based approach
+
+**System Tray:**
+App runs in system tray for quick access throughout the day.
+
+- Enabled `tray-icon` feature in Tauri dependencies
+- Created tray setup in `main.rs` with context menu (Show SSCE, Quit)
+- Left-click tray icon restores window
+- Closing window minimizes to tray instead of exiting (via `on_window_event`)
+- "Quit" menu item actually exits the application
+- Generated tray icons using ImageMagick from source logo
+- Added `tray-icon.png` (32x32) and `tray-icon.ico` (multi-size) to `src-tauri/icons/`
+
+**Files Created:**
+- `src/js/utils/spinner.js` - Spinner utility module
+- `src/config/build-time.txt` - Build timestamp (generated at build time)
+- `src-tauri/icons/tray-icon.png` - Linux tray icon
+- `src-tauri/icons/tray-icon.ico` - Windows tray icon
+
+**Files Modified:**
+- `build-and-install.sh` - Generate build timestamp
+- `src-tauri/build.rs` - Simplified (removed git hash logic)
+- `src-tauri/Cargo.toml` - Added `tray-icon` feature
+- `src-tauri/src/main.rs` - Build timestamp loading, system tray setup, close-to-tray
+- `src/js/utils/config.js` - Renamed to `updateWindowTitleWithBuildTime()`
+- `src/js/app.js` - Updated function call
+- `src/js/file-operations.js` - Spinner integration, Promise-based image loading
+- `src/css/app.css` - Spinner and overlay styles
+- `src/index.html` - Loading overlay element
+- `.env.sample` - Renamed setting to `SHOW_BUILD_TIMESTAMP`
+
+---
+
 ## Project Statistics
 
 **Rust Backend:**
-- `main.rs`: ~290 lines
-- 10 Tauri commands implemented
+- `main.rs`: ~560 lines
+- 14 Tauri commands implemented
+- System tray with context menu
 
 **JavaScript Frontend:**
 - Vanilla JS, ES6 modules (no bundler)
@@ -224,5 +282,5 @@ Added platform-specific icon files for application branding.
 
 ---
 
-*Version: 1.0.1*
+*Version: 1.0.3*
 *Last Updated: January 2026*

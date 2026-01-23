@@ -90,12 +90,15 @@ The frontend loads `defaults.json` via Tauri command and falls back to hardcoded
 - Native file dialogs (open, save)
 - File system access via Rust commands
 - Configuration loading (defaults.json, .env)
-- Git hash version tracking in footer
+- Build timestamp tracking in footer
 - Autosave and crash recovery
 - Settings editor (JSON text editor for defaults.json)
 - Native clipboard integration (copy/paste images)
+- Loading spinner overlay for file operations
+- System tray with minimize-on-close
 
 ### Not Yet Implemented (Tauri-specific)
+- Auto-updates (deferred)
 - Native menus (optional)
 
 ## Architecture
@@ -174,14 +177,14 @@ Replace HTTP endpoints with Tauri commands:
 - `file_exists` - Check file existence
 
 ### Phase 2: Native Integration
-- Native file dialogs
-- Native clipboard
-- System tray (optional)
-- Auto-updates (optional)
+- ~~Native file dialogs~~ (DONE)
+- ~~Native clipboard~~ (DONE)
+- ~~System tray~~ (DONE)
+- Auto-updates (deferred - planned for GitHub Releases)
 
 ### Phase 3: Polish
-- Application icons
-- Installer improvements
+- ~~Loading spinner for file operations~~ (DONE)
+- ~~Build timestamp in footer~~ (DONE)
 - Platform-specific tweaks
 
 ## Work Outstanding
@@ -220,6 +223,31 @@ Uses `tauri-plugin-clipboard-manager` for native clipboard access:
 - Falls back to browser Clipboard API if Tauri clipboard unavailable
 - Capabilities: `clipboard-manager:allow-read-image`, `clipboard-manager:allow-write-image`
 
+### System Tray
+~~System tray support~~ (DONE)
+
+App runs in system tray for quick access throughout the day:
+- Closing window minimizes to tray instead of exiting
+- Left-click tray icon restores window
+- Right-click shows context menu (Show SSCE, Quit)
+- "Quit" menu item exits the application
+- Tray icons in `src-tauri/icons/tray-icon.png` and `tray-icon.ico`
+
+### Loading Spinner
+~~Loading spinner for file operations~~ (DONE)
+
+Visual feedback during file open/save:
+- `src/js/utils/spinner.js` - showSpinner/hideSpinner utilities
+- CSS overlay with spinner animation in `src/css/app.css`
+- Integrated into load, save, save-as, and save-as-ssce flows
+
+### Auto-Updates (Deferred)
+Planned for future implementation using GitHub Releases:
+- Check frequency: Once per week on startup
+- User prompt: "Update available. Install on next restart?"
+- Installation: Downloads in background, installs on next app launch
+- Requires: signing keypair, tauri-plugin-updater, update manifest on GitHub
+
 ### Future Enhancements
 - Native menus (optional)
 
@@ -248,5 +276,5 @@ Uses `tauri-plugin-clipboard-manager` for native clipboard access:
 
 ---
 
-*Version: 1.0.2*
+*Version: 1.0.3*
 *Last Updated: January 2026*
