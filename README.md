@@ -71,7 +71,7 @@ sudo apt install libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-
 sudo dnf install webkit2gtk4.1-devel javascriptcoregtk4.1-devel libsoup3-devel
 ```
 
-### Windows/macOS
+### Windows
 No additional system libraries required.
 
 ## Installation

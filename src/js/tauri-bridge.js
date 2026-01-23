@@ -10,6 +10,9 @@
  * - defaultSaveDir: Directory for Save dialog (from config or home)
  * - lastOpenDir: Last used Open directory (session only)
  * - lastSaveDir: Last used Save directory (session only)
+ *
+ * NOTE: Uses window.__TAURI__ global API (requires withGlobalTauri: true in tauri.conf.json)
+ * Dynamic imports like import('@tauri-apps/api/core') do NOT work without a bundler.
  */
 
 // Track last used directories (session only, not persisted)
@@ -19,6 +22,22 @@ let lastSaveDir = null;
 // Configuration (set via setDirectoryConfig)
 let configOpenDir = null;
 let configSaveDir = null;
+
+/**
+ * Get the Tauri invoke function from global API
+ * @returns {Function|null}
+ */
+function getInvoke() {
+  return window.__TAURI__?.core?.invoke || null;
+}
+
+/**
+ * Get the Tauri dialog API from global API
+ * @returns {Object|null}
+ */
+function getDialog() {
+  return window.__TAURI__?.dialog || null;
+}
 
 /**
  * Check if running in Tauri environment
@@ -92,15 +111,16 @@ export async function useDownloadsDir() {
  */
 export async function getHomeDir() {
   if (!isTauri()) {
-    return '/home';
+    return "/home";
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('get_home_dir');
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("get_home_dir");
   } catch (error) {
-    console.error('Failed to get home directory:', error);
-    return '/home';
+    console.error("Failed to get home directory:", error);
+    return "/home";
   }
 }
 
@@ -110,14 +130,15 @@ export async function getHomeDir() {
  */
 export async function getDownloadsDir() {
   if (!isTauri()) {
-    return '/home/Downloads';
+    return "/home/Downloads";
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('get_downloads_dir');
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("get_downloads_dir");
   } catch (error) {
-    console.error('Failed to get downloads directory:', error);
+    console.error("Failed to get downloads directory:", error);
     // Fallback to home/Downloads
     const home = await getHomeDir();
     return `${home}/Downloads`;
@@ -135,26 +156,27 @@ export async function getDownloadsDir() {
  */
 export async function showOpenDialog(options = {}) {
   if (!isTauri()) {
-    console.warn('showOpenDialog: Not in Tauri environment');
+    console.warn("showOpenDialog: Not in Tauri environment");
     return null;
   }
 
   try {
-    const { open } = await import('@tauri-apps/plugin-dialog');
+    const dialog = getDialog();
+    if (!dialog || !dialog.open) throw new Error("Tauri dialog API not available");
 
-    const defaultPath = options.defaultPath || await getOpenDirectory();
+    const defaultPath = options.defaultPath || (await getOpenDirectory());
 
-    const result = await open({
-      title: options.title || 'Open File',
+    const result = await dialog.open({
+      title: options.title || "Open File",
       defaultPath,
       multiple: options.multiple || false,
       directory: false,
       filters: options.filters || [
-        { name: 'All Supported', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ssce'] },
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] },
-        { name: 'SSCE Files', extensions: ['ssce'] },
-        { name: 'All Files', extensions: ['*'] }
-      ]
+        { name: "All Supported", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ssce"] },
+        { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] },
+        { name: "SSCE Files", extensions: ["ssce"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
     });
 
     // Update last used directory if a file was selected
@@ -166,7 +188,7 @@ export async function showOpenDialog(options = {}) {
 
     return result;
   } catch (error) {
-    console.error('showOpenDialog failed:', error);
+    console.error("showOpenDialog failed:", error);
     return null;
   }
 }
@@ -181,12 +203,13 @@ export async function showOpenDialog(options = {}) {
  */
 export async function showSaveDialog(options = {}) {
   if (!isTauri()) {
-    console.warn('showSaveDialog: Not in Tauri environment');
+    console.warn("showSaveDialog: Not in Tauri environment");
     return null;
   }
 
   try {
-    const { save } = await import('@tauri-apps/plugin-dialog');
+    const dialog = getDialog();
+    if (!dialog || !dialog.save) throw new Error("Tauri dialog API not available");
 
     // Build default path from directory + filename
     let defaultPath = options.defaultPath;
@@ -195,15 +218,15 @@ export async function showSaveDialog(options = {}) {
       defaultPath = options.defaultName ? `${dir}/${options.defaultName}` : dir;
     }
 
-    const result = await save({
-      title: options.title || 'Save File',
+    const result = await dialog.save({
+      title: options.title || "Save File",
       defaultPath,
       filters: options.filters || [
-        { name: 'PNG Image', extensions: ['png'] },
-        { name: 'JPEG Image', extensions: ['jpg', 'jpeg'] },
-        { name: 'SSCE File', extensions: ['ssce'] },
-        { name: 'All Files', extensions: ['*'] }
-      ]
+        { name: "PNG Image", extensions: ["png"] },
+        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+        { name: "SSCE File", extensions: ["ssce"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
     });
 
     // Update last used directory if a path was selected
@@ -214,7 +237,7 @@ export async function showSaveDialog(options = {}) {
 
     return result;
   } catch (error) {
-    console.error('showSaveDialog failed:', error);
+    console.error("showSaveDialog failed:", error);
     return null;
   }
 }
@@ -225,17 +248,18 @@ export async function showSaveDialog(options = {}) {
  * @param {string} filter - Filter: "all", "ssce", "images"
  * @returns {Promise<Array<{name: string, is_dir: boolean, size: number}>>}
  */
-export async function browseDirectory(dir, filter = 'all') {
+export async function browseDirectory(dir, filter = "all") {
   if (!isTauri()) {
-    console.warn('browseDirectory: Not in Tauri environment');
+    console.warn("browseDirectory: Not in Tauri environment");
     return [];
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('browse_directory', { dir, filter });
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("browse_directory", { dir, filter });
   } catch (error) {
-    console.error('browseDirectory failed:', error);
+    console.error("browseDirectory failed:", error);
     throw error;
   }
 }
@@ -247,14 +271,15 @@ export async function browseDirectory(dir, filter = 'all') {
  */
 export async function loadImage(path) {
   if (!isTauri()) {
-    throw new Error('loadImage: Not in Tauri environment');
+    throw new Error("loadImage: Not in Tauri environment");
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('load_image', { path });
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("load_image", { path });
   } catch (error) {
-    console.error('loadImage failed:', error);
+    console.error("loadImage failed:", error);
     throw error;
   }
 }
@@ -267,14 +292,15 @@ export async function loadImage(path) {
  */
 export async function saveImage(path, data) {
   if (!isTauri()) {
-    throw new Error('saveImage: Not in Tauri environment');
+    throw new Error("saveImage: Not in Tauri environment");
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('save_image', { path, data });
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    await invoke("save_image", { path, data });
   } catch (error) {
-    console.error('saveImage failed:', error);
+    console.error("saveImage failed:", error);
     throw error;
   }
 }
@@ -286,14 +312,15 @@ export async function saveImage(path, data) {
  */
 export async function loadSsce(path) {
   if (!isTauri()) {
-    throw new Error('loadSsce: Not in Tauri environment');
+    throw new Error("loadSsce: Not in Tauri environment");
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('load_ssce', { path });
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("load_ssce", { path });
   } catch (error) {
-    console.error('loadSsce failed:', error);
+    console.error("loadSsce failed:", error);
     throw error;
   }
 }
@@ -306,14 +333,15 @@ export async function loadSsce(path) {
  */
 export async function saveSsce(path, data) {
   if (!isTauri()) {
-    throw new Error('saveSsce: Not in Tauri environment');
+    throw new Error("saveSsce: Not in Tauri environment");
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('save_ssce', { path, data });
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    await invoke("save_ssce", { path, data });
   } catch (error) {
-    console.error('saveSsce failed:', error);
+    console.error("saveSsce failed:", error);
     throw error;
   }
 }
@@ -329,10 +357,11 @@ export async function fileExists(path) {
   }
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('file_exists', { path });
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("file_exists", { path });
   } catch (error) {
-    console.error('fileExists failed:', error);
+    console.error("fileExists failed:", error);
     return false;
   }
 }
@@ -344,9 +373,9 @@ export async function fileExists(path) {
  */
 export function getParentDirectory(path) {
   if (!path) return null;
-  const lastSlash = path.lastIndexOf('/');
+  const lastSlash = path.lastIndexOf("/");
   if (lastSlash === -1) {
-    const lastBackslash = path.lastIndexOf('\\');
+    const lastBackslash = path.lastIndexOf("\\");
     if (lastBackslash === -1) return null;
     return path.substring(0, lastBackslash);
   }
@@ -359,8 +388,8 @@ export function getParentDirectory(path) {
  * @returns {string} Filename
  */
 export function getFilename(path) {
-  if (!path) return '';
-  const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  if (!path) return "";
+  const lastSlash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return lastSlash === -1 ? path : path.substring(lastSlash + 1);
 }
 
@@ -371,8 +400,8 @@ export function getFilename(path) {
  */
 export function getExtension(path) {
   const filename = getFilename(path);
-  const lastDot = filename.lastIndexOf('.');
-  if (lastDot === -1 || lastDot === 0) return '';
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot === -1 || lastDot === 0) return "";
   return filename.substring(lastDot + 1).toLowerCase();
 }
 
@@ -383,7 +412,7 @@ export function getExtension(path) {
  */
 export function isImageFile(path) {
   const ext = getExtension(path);
-  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext);
+  return ["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext);
 }
 
 /**
@@ -392,5 +421,5 @@ export function isImageFile(path) {
  * @returns {boolean}
  */
 export function isSsceFile(path) {
-  return getExtension(path) === 'ssce';
+  return getExtension(path) === "ssce";
 }

@@ -34,21 +34,6 @@ A simple, powerful screen capture editor for annotating screenshots and images. 
 
 **To uninstall:** Settings > Apps > SSCE Desktop > Uninstall
 
-### macOS
-
-**Apple Silicon (M1/M2/M3):**
-1. Download `SSCE-Desktop_x.x.x_aarch64.dmg`
-2. Double-click to open the disk image
-3. Drag SSCE Desktop to your Applications folder
-4. First launch: Right-click the app and select "Open" (required for unsigned apps)
-5. Click "Open" in the security dialog
-
-**Intel Mac:**
-1. Download `SSCE-Desktop_x.x.x_x64.dmg`
-2. Follow the same steps as above
-
-**To uninstall:** Drag SSCE Desktop from Applications to Trash
-
 ### Linux
 
 **Debian/Ubuntu (.deb):**
@@ -75,7 +60,7 @@ sudo rpm -i ssce-desktop-x.x.x.x86_64.rpm
 ### Opening an Image
 
 **Method 1: File Menu**
-1. Click **File > Open** (or press Ctrl+O / Cmd+O)
+1. Click **File > Open** (or press Ctrl+O)
 2. Navigate to your image in the file browser
 3. Select the file and click "Open"
 
@@ -84,7 +69,7 @@ sudo rpm -i ssce-desktop-x.x.x.x86_64.rpm
 
 **Method 3: Paste from Clipboard**
 1. Copy an image in another application (screenshot tool, web browser, etc.)
-2. In SSCE Desktop, press Ctrl+V (Cmd+V on Mac)
+2. In SSCE Desktop, press Ctrl+V
 3. Choose "Replace" to open as new image, or "Combine" to add to existing
 
 ### Supported Image Formats
@@ -147,7 +132,7 @@ Use to select, move, and edit existing annotations.
 - Press Delete to remove it
 
 **Selecting Multiple Items:**
-- Hold Ctrl (Cmd on Mac) and click each item
+- Hold Ctrl and click each item
 - All selected items move together when dragged
 - Press Delete to remove all selected items
 
@@ -335,7 +320,6 @@ For sharing with others, save as PNG or JPG:
 | Ctrl+Y | Redo |
 | Ctrl+P | Print |
 
-*On Mac, use Cmd instead of Ctrl*
 
 ### Tool Selection
 
@@ -461,12 +445,6 @@ If you closed without saving, annotations are lost. Always save your work:
 2. Check if antivirus is blocking the application
 3. Reinstall the application
 
-### Application Won't Start (Mac)
-
-1. Right-click the app and select "Open" (don't double-click)
-2. Click "Open" in the security dialog
-3. If blocked, go to System Preferences > Security & Privacy > "Open Anyway"
-
 ### Application Won't Start (Linux)
 
 For AppImage:
@@ -519,11 +497,6 @@ Currently, SSCE edits one image at a time. For batch processing, you'll need to 
 - 64-bit processor
 - WebView2 runtime (included in Windows 11, auto-installed on Windows 10)
 
-**macOS:**
-- macOS 10.15 (Catalina) or later
-- Intel or Apple Silicon processor
-- ~50MB disk space
-
 **Linux:**
 - 64-bit processor
 - WebKitGTK 4.1 or later
@@ -546,10 +519,6 @@ sudo dnf install webkit2gtk4.1 gtk3
 **Windows:**
 - Application: `C:\Program Files\SSCE Desktop\`
 - User data: `%APPDATA%\SSCE Desktop\`
-
-**macOS:**
-- Application: `/Applications/SSCE Desktop.app`
-- User data: `~/Library/Application Support/SSCE Desktop/`
 
 **Linux:**
 - Application: `/usr/bin/ssce-desktop` or AppImage location

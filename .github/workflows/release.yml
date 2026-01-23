@@ -93,63 +93,9 @@ jobs:
           name: windows-msi
           path: src-tauri/target/release/bundle/msi/*.msi
 
-  build-macos-intel:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
-
-      - name: Build Tauri app (Intel)
-        run: cargo tauri build --target x86_64-apple-darwin
-        working-directory: src-tauri
-
-      - name: List build outputs
-        run: find src-tauri/target -name "*.dmg" -type f
-
-      - name: Upload Intel .dmg artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-intel-dmg
-          path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
-
-  build-macos-arm:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
-
-      - name: Build Tauri app (Apple Silicon)
-        run: cargo tauri build --target aarch64-apple-darwin
-        working-directory: src-tauri
-
-      - name: List build outputs
-        run: find src-tauri/target -name "*.dmg" -type f
-
-      - name: Upload ARM .dmg artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm-dmg
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
-
   # Upload all artifacts to the release
   upload-release-assets:
-    needs: [build-linux, build-windows, build-macos-intel, build-macos-arm]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
@@ -172,6 +118,5 @@ jobs:
             artifacts/**/*.AppImage
             artifacts/**/*.exe
             artifacts/**/*.msi
-            artifacts/**/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
