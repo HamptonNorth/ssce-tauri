@@ -70,6 +70,8 @@
     "lg": { "fontSize": 28, "fontWeight": 700 }
   },
   "textLineHeight": 1.2,
+  "symbolSizeMultiplier": 1.2,
+  "textTopOffset": 0.15,
   "arrowheadStyles": {
     "standard": {
       "name": "Standard",

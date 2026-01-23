@@ -397,54 +397,72 @@ export class SelectTool {
       // Check if point is near the arrow/line
       return this.isPointNearLine(x, y, layer.data.startX, layer.data.startY, layer.data.endX, layer.data.endY, hitMargin);
     } else if (layer.type === "text") {
-      // Create a rough bounding box for text (handles multi-line)
-      // Note: text is rendered with textBaseline='top', so y is at the top of the text
+      // Create bounding box for text using actual font metrics
       const ctx = this.canvasManager.ctx;
-      const fontSize = this.getTextSizePixels(layer.data.size);
-      ctx.font = `${fontSize}px sans-serif`;
+      const sizeConfig = getTextSize(layer.data.size);
+      const fontSize = sizeConfig.fontSize;
+      const fontWeight = sizeConfig.fontWeight;
+      ctx.font = `${fontWeight} ${fontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textBaseline = "alphabetic";
 
-      // Handle multi-line text by splitting on newlines
       const lines = layer.data.text.split("\n");
-      const lineHeight = fontSize * getTextLineHeight(); // Same as rendering
+      const lineHeightMult = getTextLineHeight();
 
-      // Find the widest line
-      let maxWidth = 0;
-      for (const line of lines) {
-        const metrics = ctx.measureText(line);
+      // Measure first line to get metrics
+      const firstMetrics = ctx.measureText(lines[0] || "X");
+
+      // When rendered with textBaseline='top', the em-box top is at y
+      // The actual glyph starts at y + (fontBoundingBoxAscent - actualBoundingBoxAscent)
+      const glyphTop = firstMetrics.fontBoundingBoxAscent - firstMetrics.actualBoundingBoxAscent;
+
+      // Find widest line
+      let maxWidth = firstMetrics.width;
+      for (let i = 1; i < lines.length; i++) {
+        const metrics = ctx.measureText(lines[i]);
         if (metrics.width > maxWidth) {
           maxWidth = metrics.width;
         }
       }
 
+      // Measure last line to get descent
+      const lastMetrics = lines.length > 1 ? ctx.measureText(lines[lines.length - 1]) : firstMetrics;
+
       const width = maxWidth;
-      const height = lines.length * lineHeight;
+      // Height from actual glyph top to actual glyph bottom
+      const height = firstMetrics.actualBoundingBoxAscent + (lines.length - 1) * fontSize * lineHeightMult + lastMetrics.actualBoundingBoxDescent;
 
-      // Bounding box: x,y is top-left corner, text extends right and down
-      return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y - hitMargin && y <= layer.data.y + height + hitMargin;
+      // Bounding box starts at y + glyphTop (where actual content begins)
+      return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y + glyphTop - hitMargin && y <= layer.data.y + glyphTop + height + hitMargin;
     } else if (layer.type === "step") {
-      // Create a rough bounding box for step (circled digit - single character)
-      // Note: steps are rendered with textBaseline='top', so y is at the top
+      // Use actual font metrics for accurate bounding box
       const ctx = this.canvasManager.ctx;
-      const fontSize = this.getStepSize(layer.data.size);
-      ctx.font = `${fontSize}px sans-serif`;
+      const sizeConfig = getTextSize(layer.data.size);
+      ctx.font = `${sizeConfig.fontWeight} ${sizeConfig.fontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textBaseline = "alphabetic";
       const metrics = ctx.measureText(layer.data.symbol);
-      const width = metrics.width;
-      const height = fontSize;
 
-      // Bounding box: x,y is top-left corner, text extends right and down
-      return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y - hitMargin && y <= layer.data.y + height + hitMargin;
+      // When rendered with textBaseline='top', actual glyph starts below y
+      const glyphTop = metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent;
+      const width = metrics.width;
+      const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+      return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y + glyphTop - hitMargin && y <= layer.data.y + glyphTop + height + hitMargin;
     } else if (layer.type === "symbol") {
-      // Create a rough bounding box for symbol (single character like emoji/Unicode)
-      // Note: symbols are rendered with textBaseline='top', so y is at the top
+      // Symbols use canvas scaling, measure at base size then scale
       const ctx = this.canvasManager.ctx;
-      const fontSize = this.getSymbolSize(layer.data.size);
-      ctx.font = `${fontSize}px sans-serif`;
+      const sizeConfig = getTextSize(layer.data.size);
+      const baseSize = 20;
+      const scale = sizeConfig.fontSize / baseSize;
+      ctx.font = `${sizeConfig.fontWeight} ${baseSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textBaseline = "alphabetic";
       const metrics = ctx.measureText(layer.data.symbol);
-      const width = metrics.width;
-      const height = fontSize;
 
-      // Bounding box: x,y is top-left corner, symbol extends right and down
-      return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y - hitMargin && y <= layer.data.y + height + hitMargin;
+      // When rendered with textBaseline='top', actual glyph starts below y (scaled)
+      const glyphTop = (metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent) * scale;
+      const width = metrics.width * scale;
+      const height = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * scale;
+
+      return x >= layer.data.x - hitMargin && x <= layer.data.x + width + hitMargin && y >= layer.data.y + glyphTop - hitMargin && y <= layer.data.y + glyphTop + height + hitMargin;
     } else if (layer.type === "shape" || layer.type === "highlight") {
       // Bounding box for rectangle shape or highlight
       return x >= layer.data.x - hitMargin && x <= layer.data.x + layer.data.width + hitMargin && y >= layer.data.y - hitMargin && y <= layer.data.y + layer.data.height + hitMargin;
@@ -566,55 +584,78 @@ export class SelectTool {
           ctx.strokeRect(minX - 5, minY - 5, maxX - minX + 10, maxY - minY + 10);
         }
       } else if (layer.type === "text") {
-        // Draw bounding box around text (handles multi-line)
+        // Draw bounding box around text using actual font metrics
         ctx.strokeStyle = "#3B82F6";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
 
-        const fontSize = this.getTextSizePixels(layer.data.size);
-        ctx.font = `${fontSize}px sans-serif`;
+        const sizeConfig = getTextSize(layer.data.size);
+        const fontSize = sizeConfig.fontSize;
+        const fontWeight = sizeConfig.fontWeight;
+        ctx.font = `${fontWeight} ${fontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textBaseline = "alphabetic";
 
         const lines = layer.data.text.split("\n");
-        const lineHeight = fontSize * getTextLineHeight();
+        const lineHeightMult = getTextLineHeight();
 
-        let maxWidth = 0;
-        for (const line of lines) {
-          const metrics = ctx.measureText(line);
+        // Measure first line to get metrics
+        const firstMetrics = ctx.measureText(lines[0] || "X");
+
+        // When rendered with textBaseline='top', actual glyph starts below y
+        const glyphTop = firstMetrics.fontBoundingBoxAscent - firstMetrics.actualBoundingBoxAscent;
+
+        // Find widest line
+        let maxWidth = firstMetrics.width;
+        for (let i = 1; i < lines.length; i++) {
+          const metrics = ctx.measureText(lines[i]);
           if (metrics.width > maxWidth) {
             maxWidth = metrics.width;
           }
         }
 
+        // Measure last line to get descent
+        const lastMetrics = lines.length > 1 ? ctx.measureText(lines[lines.length - 1]) : firstMetrics;
+
         const width = maxWidth;
-        const height = lines.length * lineHeight;
+        const height = firstMetrics.actualBoundingBoxAscent + (lines.length - 1) * fontSize * lineHeightMult + lastMetrics.actualBoundingBoxDescent;
 
-        ctx.strokeRect(layer.data.x - 5, layer.data.y - 5, width + 10, height + 10);
+        ctx.strokeRect(layer.data.x - 5, layer.data.y + glyphTop - 5, width + 10, height + 10);
       } else if (layer.type === "step") {
-        // Draw bounding box around step
+        // Draw bounding box around step using actual font metrics
         ctx.strokeStyle = "#3B82F6";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
 
-        const fontSize = this.getStepSize(layer.data.size);
-        ctx.font = `${fontSize}px sans-serif`;
+        const sizeConfig = getTextSize(layer.data.size);
+        ctx.font = `${sizeConfig.fontWeight} ${sizeConfig.fontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textBaseline = "alphabetic";
         const metrics = ctx.measureText(layer.data.symbol);
-        const width = metrics.width;
-        const height = fontSize;
 
-        ctx.strokeRect(layer.data.x - 5, layer.data.y - 5, width + 10, height + 10);
+        // When rendered with textBaseline='top', actual glyph starts below y
+        const glyphTop = metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent;
+        const width = metrics.width;
+        const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+        ctx.strokeRect(layer.data.x - 5, layer.data.y + glyphTop - 5, width + 10, height + 10);
       } else if (layer.type === "symbol") {
-        // Draw bounding box around symbol
+        // Draw bounding box around symbol using actual font metrics (scaled)
         ctx.strokeStyle = "#3B82F6";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
 
-        const fontSize = this.getSymbolSize(layer.data.size);
-        ctx.font = `${fontSize}px sans-serif`;
+        const sizeConfig = getTextSize(layer.data.size);
+        const baseSize = 20;
+        const scale = sizeConfig.fontSize / baseSize;
+        ctx.font = `${sizeConfig.fontWeight} ${baseSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textBaseline = "alphabetic";
         const metrics = ctx.measureText(layer.data.symbol);
-        const width = metrics.width;
-        const height = fontSize;
 
-        ctx.strokeRect(layer.data.x - 5, layer.data.y - 5, width + 10, height + 10);
+        // When rendered with textBaseline='top', actual glyph starts below y (scaled)
+        const glyphTop = (metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent) * scale;
+        const width = metrics.width * scale;
+        const height = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * scale;
+
+        ctx.strokeRect(layer.data.x - 5, layer.data.y + glyphTop - 5, width + 10, height + 10);
       } else if (layer.type === "shape" || layer.type === "highlight") {
         // Draw corner handles for single selection, bounding box for multi-select
         if (this.selectedLayerIndices.length === 1) {
