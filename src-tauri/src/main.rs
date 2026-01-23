@@ -166,6 +166,107 @@ fn file_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
+// ============================================================================
+// Autosave Commands
+// ============================================================================
+
+/// Autosave file entry with metadata
+#[derive(Serialize)]
+struct AutosaveEntry {
+    name: String,
+    path: String,
+    mtime: u64,
+}
+
+/// Save autosave data to a temp file
+/// Creates the directory if it doesn't exist
+#[tauri::command]
+fn save_autosave(data: String, filename: String, directory: String) -> Result<String, String> {
+    let dir_path = Path::new(&directory);
+
+    // Create directory if it doesn't exist
+    if !dir_path.exists() {
+        fs::create_dir_all(dir_path)
+            .map_err(|e| format!("Failed to create autosave directory: {}", e))?;
+    }
+
+    let file_path = dir_path.join(&filename);
+    let full_path = file_path.to_string_lossy().to_string();
+
+    fs::write(&file_path, &data)
+        .map_err(|e| format!("Failed to write autosave file: {}", e))?;
+
+    Ok(full_path)
+}
+
+/// Delete an autosave temp file
+#[tauri::command]
+fn delete_autosave(path: String) -> Result<(), String> {
+    let file_path = Path::new(&path);
+
+    if file_path.exists() {
+        fs::remove_file(file_path)
+            .map_err(|e| format!("Failed to delete autosave file: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// List autosave files in a directory
+/// Returns files with .ssce extension, sorted by modification time (newest first)
+#[tauri::command]
+fn list_autosave_files(directory: String) -> Result<Vec<AutosaveEntry>, String> {
+    let dir_path = Path::new(&directory);
+
+    if !dir_path.exists() {
+        // Directory doesn't exist, no recovery files
+        return Ok(Vec::new());
+    }
+
+    if !dir_path.is_dir() {
+        return Err(format!("Path is not a directory: {}", directory));
+    }
+
+    let mut entries: Vec<AutosaveEntry> = Vec::new();
+
+    let read_dir = fs::read_dir(dir_path)
+        .map_err(|e| format!("Failed to read autosave directory: {}", e))?;
+
+    for entry in read_dir {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let metadata = entry.metadata().map_err(|e| format!("Failed to get metadata: {}", e))?;
+
+        // Skip directories
+        if metadata.is_dir() {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        // Only include .ssce files
+        if !name.to_lowercase().ends_with(".ssce") {
+            continue;
+        }
+
+        // Get modification time as unix timestamp
+        let mtime = metadata
+            .modified()
+            .map_err(|e| format!("Failed to get mtime: {}", e))?
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let path = entry.path().to_string_lossy().to_string();
+
+        entries.push(AutosaveEntry { name, path, mtime });
+    }
+
+    // Sort by modification time, newest first
+    entries.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+
+    Ok(entries)
+}
+
 /// Get the user's home directory
 #[tauri::command]
 fn get_home_dir() -> Result<String, String> {
@@ -283,6 +384,9 @@ fn main() {
             load_ssce,
             save_ssce,
             file_exists,
+            save_autosave,
+            delete_autosave,
+            list_autosave_files,
             get_home_dir,
             get_downloads_dir,
             get_env_config,

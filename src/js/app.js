@@ -204,20 +204,14 @@ async function init() {
   });
 
   // Check for recovery files from previous crash
-  // Disabled in Tauri - requires HTTP endpoints not yet migrated
-  // await checkRecoveryFiles();
+  await checkRecoveryFiles();
 
   // Initialize auto-save system
-  // Disabled in Tauri - requires HTTP endpoints not yet migrated
-  // TODO: Implement Tauri commands for autosave (see CLAUDE.md)
-  if (!tauriBridge.isTauri()) {
-    initAutoSave({
-      enabled: true,
-      inactivitySeconds: 30,
-      tempDirectory: ".ssce-temp",
-      maxTempFiles: 10,
-    });
-  }
+  initAutoSave({
+    enabled: true,
+    inactivitySeconds: 30,
+    tempDirectory: ".ssce-temp",
+  });
 
   // Update UI state
   updateUndoRedoButtons();

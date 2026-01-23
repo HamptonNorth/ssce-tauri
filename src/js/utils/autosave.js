@@ -6,11 +6,13 @@
  * Each session uses a single temp file (overwritten on each auto-save).
  * The temp file is deleted on normal save/exit.
  * Orphaned temp files from crashes are detected on next startup.
+ *
+ * Supports both Tauri (native) and HTTP (Bun server) backends.
  */
 
 import { state, modules } from "../state.js";
 import { serialize } from "./ssce-format.js";
-import { showToast } from "./toast.js";
+import * as tauriBridge from "../tauri-bridge.js";
 
 // ============================================================================
 // Configuration
@@ -27,6 +29,7 @@ let lastActivityTime = Date.now();
 let autoSaveTimer = null;
 let currentTempFile = null;
 let sessionId = null; // Unique ID for this session's temp file
+let tempDirectoryPath = null; // Full path to temp directory
 
 // ============================================================================
 // Activity Tracking
@@ -55,7 +58,7 @@ function isInactive() {
  * Initialize auto-save system
  * @param {Object} options - Configuration options
  */
-export function initAutoSave(options = {}) {
+export async function initAutoSave(options = {}) {
   config = { ...DEFAULT_CONFIG, ...options };
 
   if (!config.enabled) {
@@ -65,6 +68,12 @@ export function initAutoSave(options = {}) {
 
   // Generate a unique session ID for this session's temp file
   sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+
+  // Determine the full path to the temp directory
+  if (tauriBridge.isTauri()) {
+    const homeDir = await tauriBridge.getHomeDir();
+    tempDirectoryPath = `${homeDir}/${config.tempDirectory}`;
+  }
 
   // Start the auto-save check timer
   startAutoSaveTimer();
@@ -136,25 +145,31 @@ async function performAutoSave() {
       snapshots: state.snapshots || [],
     });
 
-    // Save to server (overwrites existing file with same name)
-    const response = await fetch("/api/autosave", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ssceData,
-        filename: tempFilename,
-        directory: config.tempDirectory,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      // Track current temp file for cleanup
-      currentTempFile = result.path;
-      console.log(`SSCE AutoSave: Saved to ${result.path}`);
+    if (tauriBridge.isTauri()) {
+      // Tauri: Use native file system
+      const savedPath = await tauriBridge.saveAutosave(ssceData, tempFilename, tempDirectoryPath);
+      currentTempFile = savedPath;
+      console.log(`SSCE AutoSave: Saved to ${savedPath}`);
     } else {
-      console.error("SSCE AutoSave: Failed -", result.error);
+      // HTTP: Use Bun server API
+      const response = await fetch("/api/autosave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ssceData,
+          filename: tempFilename,
+          directory: config.tempDirectory,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        currentTempFile = result.path;
+        console.log(`SSCE AutoSave: Saved to ${result.path}`);
+      } else {
+        console.error("SSCE AutoSave: Failed -", result.error);
+      }
     }
   } catch (err) {
     console.error("SSCE AutoSave: Error -", err.message);
@@ -172,11 +187,17 @@ export async function cleanupTempFile() {
   if (!currentTempFile) return;
 
   try {
-    await fetch("/api/autosave-cleanup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: currentTempFile }),
-    });
+    if (tauriBridge.isTauri()) {
+      // Tauri: Use native file system
+      await tauriBridge.deleteAutosave(currentTempFile);
+    } else {
+      // HTTP: Use Bun server API
+      await fetch("/api/autosave-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: currentTempFile }),
+      });
+    }
     currentTempFile = null;
     console.log("SSCE AutoSave: Cleaned up temp file");
   } catch (err) {
@@ -189,16 +210,39 @@ export async function cleanupTempFile() {
 // ============================================================================
 
 /**
+ * Get the temp directory path for recovery checks
+ * @returns {Promise<string>} The temp directory path
+ */
+export async function getTempDirectory() {
+  if (tauriBridge.isTauri()) {
+    if (!tempDirectoryPath) {
+      const homeDir = await tauriBridge.getHomeDir();
+      tempDirectoryPath = `${homeDir}/${config.tempDirectory}`;
+    }
+    return tempDirectoryPath;
+  }
+  return config.tempDirectory;
+}
+
+/**
  * Check for orphaned temp files from previous sessions
  * @returns {Promise<Array>} List of recoverable files
  */
 export async function checkForRecovery() {
   try {
-    const response = await fetch(`/api/autosave-list?directory=${encodeURIComponent(config.tempDirectory)}`);
-    const result = await response.json();
+    if (tauriBridge.isTauri()) {
+      // Tauri: Use native file system
+      const directory = await getTempDirectory();
+      const files = await tauriBridge.listAutosaveFiles(directory);
+      return files;
+    } else {
+      // HTTP: Use Bun server API
+      const response = await fetch(`/api/autosave-list?directory=${encodeURIComponent(config.tempDirectory)}`);
+      const result = await response.json();
 
-    if (result.success && result.files.length > 0) {
-      return result.files;
+      if (result.success && result.files.length > 0) {
+        return result.files;
+      }
     }
   } catch (err) {
     console.error("SSCE AutoSave: Recovery check failed -", err.message);
@@ -210,16 +254,24 @@ export async function checkForRecovery() {
 /**
  * Load a recovery file
  * @param {string} filePath - Path to the temp file
+ * @returns {Promise<Object>} The loaded data with success flag
  */
 export async function loadRecoveryFile(filePath) {
   try {
-    const response = await fetch(`/api/load-ssce?path=${encodeURIComponent(filePath)}`);
-    const result = await response.json();
-
-    if (result.success) {
-      return result;
+    if (tauriBridge.isTauri()) {
+      // Tauri: Use native file system (reuse loadSsce command)
+      const data = await tauriBridge.loadSsce(filePath);
+      return { success: true, data };
     } else {
-      throw new Error(result.error);
+      // HTTP: Use Bun server API
+      const response = await fetch(`/api/load-ssce?path=${encodeURIComponent(filePath)}`);
+      const result = await response.json();
+
+      if (result.success) {
+        return result;
+      } else {
+        throw new Error(result.error);
+      }
     }
   } catch (err) {
     console.error("SSCE AutoSave: Recovery load failed -", err.message);
@@ -233,11 +285,17 @@ export async function loadRecoveryFile(filePath) {
  */
 export async function deleteRecoveryFile(filePath) {
   try {
-    await fetch("/api/autosave-cleanup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: filePath }),
-    });
+    if (tauriBridge.isTauri()) {
+      // Tauri: Use native file system
+      await tauriBridge.deleteAutosave(filePath);
+    } else {
+      // HTTP: Use Bun server API
+      await fetch("/api/autosave-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: filePath }),
+      });
+    }
   } catch (err) {
     console.error("SSCE AutoSave: Delete recovery file failed -", err.message);
   }

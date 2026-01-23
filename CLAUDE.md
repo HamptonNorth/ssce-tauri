@@ -8,7 +8,7 @@ SSCE Desktop is a Tauri-wrapped version of SSCE (Simple Screen Capture Editor). 
 - **Frontend**: Vanilla JavaScript (ES6 modules), HTML5 Canvas API, Tailwind CSS
 - **Desktop Runtime**: Tauri v2 (Rust-based, uses system WebView)
 - **Backend**: Rust (minimal - primarily for file operations)
-- **Platforms**: Linux (primary), Windows, macOS
+- **Platforms**: Linux (primary), Windows
 
 **Key Documentation:**
 - **CLAUDE.md** (this file): Project overview and development guidance
@@ -91,9 +91,9 @@ The frontend loads `defaults.json` via Tauri command and falls back to hardcoded
 - File system access via Rust commands
 - Configuration loading (defaults.json, .env)
 - Git hash version tracking in footer
+- Autosave and crash recovery
 
 ### Not Yet Implemented (Tauri-specific)
-- Autosave/crash recovery (see Work Outstanding below)
 - Native clipboard integration
 - Native menus (optional)
 
@@ -189,20 +189,16 @@ Replace HTTP endpoints with Tauri commands:
 - ~~Add a Tauri command to serve `src/config/defaults.js` to the frontend~~ (DONE - `get_defaults_config`)
 - ~~Add a Tauri command to read `.env` settings and expose to frontend~~ (DONE - `get_env_config`)
 
-### Autosave System (Migration Required)
-The autosave/crash recovery system still uses HTTP endpoints from the original Bun server:
-- `/api/autosave` (POST) - Save temp recovery file
-- `/api/autosave-cleanup` (POST) - Delete temp file after successful save
-- `/api/autosave-list` (GET) - List orphaned recovery files on startup
-- `/api/load-ssce` (GET) - Load recovery file
+### Autosave System
+~~The autosave/crash recovery system still uses HTTP endpoints from the original Bun server~~ (DONE)
 
-**To implement:** Create Tauri commands to replace these endpoints:
+Implemented Tauri commands:
 - `save_autosave(data, filename, directory)` - Write temp .ssce file
-- `delete_autosave(path)` - Delete temp file
+- `delete_autosave(path)` - Delete temp file  
 - `list_autosave_files(directory)` - List .ssce files in temp directory
-- Use existing `load_ssce` command for loading
+- Uses existing `load_ssce` command for loading recovery files
 
-Until implemented, autosave is disabled in Tauri builds.
+Temp files are stored in `~/.ssce-temp/` with format `autosave_{sessionId}_{filename}.ssce`
 
 ### Future Enhancements
 - Add settings UI to edit defaults.json values

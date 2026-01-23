@@ -423,3 +423,69 @@ export function isImageFile(path) {
 export function isSsceFile(path) {
   return getExtension(path) === "ssce";
 }
+
+// ============================================================================
+// Autosave Functions
+// ============================================================================
+
+/**
+ * Save autosave data to a temp file
+ * @param {string} data - JSON string data to save
+ * @param {string} filename - Filename for the autosave file
+ * @param {string} directory - Directory to save the file in
+ * @returns {Promise<string>} Full path of saved file
+ */
+export async function saveAutosave(data, filename, directory) {
+  if (!isTauri()) {
+    throw new Error("saveAutosave: Not in Tauri environment");
+  }
+
+  try {
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("save_autosave", { data, filename, directory });
+  } catch (error) {
+    console.error("saveAutosave failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Delete an autosave temp file
+ * @param {string} path - Full path to the autosave file
+ * @returns {Promise<void>}
+ */
+export async function deleteAutosave(path) {
+  if (!isTauri()) {
+    throw new Error("deleteAutosave: Not in Tauri environment");
+  }
+
+  try {
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    await invoke("delete_autosave", { path });
+  } catch (error) {
+    console.error("deleteAutosave failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * List autosave files in a directory
+ * @param {string} directory - Directory to list files from
+ * @returns {Promise<Array<{name: string, path: string, mtime: number}>>}
+ */
+export async function listAutosaveFiles(directory) {
+  if (!isTauri()) {
+    return [];
+  }
+
+  try {
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("list_autosave_files", { directory });
+  } catch (error) {
+    console.error("listAutosaveFiles failed:", error);
+    return [];
+  }
+}
