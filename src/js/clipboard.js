@@ -116,22 +116,24 @@ export async function handleCopyToClipboard() {
   }
 
   try {
-    const imageData = modules.canvasManager.toDataURL();
-
     // Try Tauri native clipboard first
     if (tauriBridge.isTauri()) {
-      const success = await tauriBridge.writeImageToClipboard(imageData);
+      // Pass the canvas element - Tauri needs raw RGBA pixel data
+      const canvas = modules.canvasManager.getCanvas();
+      const success = await tauriBridge.writeImageToClipboard(canvas);
 
       if (success) {
         showToast("Image copied to clipboard", "success");
       } else {
         // Fall back to browser API
+        const imageData = modules.canvasManager.toDataURL();
         await copyToClipboardBrowser(imageData);
       }
       return;
     }
 
     // Use browser Clipboard API
+    const imageData = modules.canvasManager.toDataURL();
     await copyToClipboardBrowser(imageData);
   } catch (err) {
     console.error("Copy error:", err);

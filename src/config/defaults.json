@@ -43,14 +43,7 @@
     }
   },
   "palette": {
-    "colours": [
-      "#FFFFFF",
-      "#000000",
-      "#FF0000",
-      "#00FF00",
-      "#0000FF",
-      "#FFFF00"
-    ]
+    "colours": ["#FFFFFF", "#000000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00"]
   },
   "canvas": {
     "background": "#CCCCCC",
@@ -104,6 +97,10 @@
     "enabled": true,
     "inactivitySeconds": 30,
     "tempDirectory": ".ssce-temp"
+  },
+  "toast": {
+    "durationMs": 3000,
+    "errorDurationMs": 5000
   },
   "user": {
     "initials": ""

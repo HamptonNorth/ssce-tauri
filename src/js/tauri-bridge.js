@@ -503,27 +503,32 @@ function getClipboard() {
 }
 
 /**
- * Write image to clipboard
- * @param {string} base64Data - Base64 encoded image data (with or without data URL prefix)
+ * Write image to clipboard using canvas PNG data
+ * @param {HTMLCanvasElement} canvas - Canvas element to copy
  * @returns {Promise<boolean>} True if successful
  */
-export async function writeImageToClipboard(base64Data) {
+export async function writeImageToClipboard(canvas) {
   if (!isTauri()) {
     return false;
   }
 
   try {
     const clipboard = getClipboard();
-    if (!clipboard) throw new Error("Clipboard API not available");
-
-    // Strip data URL prefix if present
-    let imageData = base64Data;
-    if (imageData.includes(",")) {
-      imageData = imageData.split(",")[1];
+    if (!clipboard || !clipboard.writeImage) {
+      console.error("Clipboard writeImage not available");
+      return false;
     }
 
-    // Use writeImage for PNG data
-    await clipboard.writeImage(imageData);
+    // Convert canvas to PNG blob
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) {
+      console.error("Failed to create PNG blob");
+      return false;
+    }
+
+    // Write PNG bytes to clipboard as Uint8Array
+    const arrayBuffer = await blob.arrayBuffer();
+    await clipboard.writeImage(new Uint8Array(arrayBuffer));
     return true;
   } catch (error) {
     console.error("writeImageToClipboard failed:", error);
@@ -533,7 +538,7 @@ export async function writeImageToClipboard(base64Data) {
 
 /**
  * Read image from clipboard
- * @returns {Promise<string|null>} Base64 image data URL or null if no image
+ * @returns {Promise<string|null>} Data URL of the image or null if no image
  */
 export async function readImageFromClipboard() {
   if (!isTauri()) {
@@ -544,14 +549,32 @@ export async function readImageFromClipboard() {
     const clipboard = getClipboard();
     if (!clipboard) throw new Error("Clipboard API not available");
 
-    // Read image returns base64 PNG data
-    const imageData = await clipboard.readImage();
+    // readImage returns a Tauri Image object
+    const image = await clipboard.readImage();
 
-    if (imageData && imageData.length > 0) {
-      // Convert to data URL
-      return `data:image/png;base64,${imageData}`;
+    if (!image) {
+      return null;
     }
-    return null;
+
+    // Get RGBA data and dimensions from the Image object
+    // Note: size() returns { width, height }, not separate methods
+    const rgba = await image.rgba();
+    const { width, height } = await image.size();
+
+    if (!rgba || rgba.length === 0 || !width || !height) {
+      return null;
+    }
+
+    // Convert RGBA data to canvas, then to data URL
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+
+    const imageData = new ImageData(new Uint8ClampedArray(rgba), width, height);
+    ctx.putImageData(imageData, 0, 0);
+
+    return canvas.toDataURL("image/png");
   } catch (error) {
     // No image in clipboard is not an error, just return null
     console.log("readImageFromClipboard: No image in clipboard or error:", error.message);

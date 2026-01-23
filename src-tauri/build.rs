@@ -20,8 +20,13 @@ fn main() {
     eprintln!("build.rs: Setting GIT_HASH={}", git_hash);
 
     println!("cargo:rustc-env=GIT_HASH={}", git_hash);
-    // Rerun if git HEAD changes
+
+    // Rerun if git HEAD changes (new commits, branch switches)
     println!("cargo:rerun-if-changed=../.git/HEAD");
+    // Rerun if any branch ref changes (covers commits to current branch)
+    println!("cargo:rerun-if-changed=../.git/refs/heads/");
+    // Also check the index for uncommitted state detection
+    println!("cargo:rerun-if-changed=../.git/index");
 
     tauri_build::build()
 }

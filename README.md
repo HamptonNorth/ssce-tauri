@@ -210,6 +210,32 @@ The Rust backend provides these commands callable from JavaScript:
 | `get_defaults_config` | Load UI configuration from defaults.json |
 | `get_env_config` | Load environment settings (.env paths, git hash) |
 
+## Build Notes
+
+### Git Hash in Footer
+
+The application displays the git commit hash in the footer. This is embedded at build time via `src-tauri/build.rs`. The build script monitors git state files to automatically update the hash on new commits:
+
+- `.git/HEAD` - detects branch switches
+- `.git/refs/heads/` - detects new commits
+- `.git/index` - detects staging changes
+
+If the hash doesn't update after a commit, force a rebuild with:
+
+```bash
+cd src-tauri
+cargo clean
+cargo tauri build
+```
+
+Alternatively, use the convenience script from the project root:
+
+```bash
+./build-and-install.sh
+```
+
+This script builds a release binary and installs it to `~/.local/bin/ssce-desktop`.
+
 ## Licence
 
 MIT
