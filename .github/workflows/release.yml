@@ -37,7 +37,11 @@ jobs:
         run: cargo install tauri-cli --version "^2"
 
       - name: Generate build timestamp
-        run: date '+%Y-%m-%d %H:%M:%S' > src/config/build-time.txt
+        run: |
+          date '+%Y-%m-%d %H:%M:%S' > src/config/build-time.txt
+          echo "Created build-time.txt:"
+          cat src/config/build-time.txt
+          ls -la src/config/
 
       - name: Build Tauri app
         run: cargo tauri build
@@ -78,7 +82,11 @@ jobs:
         run: cargo install tauri-cli --version "^2"
 
       - name: Generate build timestamp
-        run: Get-Date -Format 'yyyy-MM-dd HH:mm:ss' | Out-File -FilePath src/config/build-time.txt -Encoding utf8
+        run: |
+          Get-Date -Format 'yyyy-MM-dd HH:mm:ss' | Out-File -FilePath src/config/build-time.txt -Encoding utf8
+          Write-Host "Created build-time.txt:"
+          Get-Content src/config/build-time.txt
+          Get-ChildItem src/config/
 
       - name: Build Tauri app
         run: cargo tauri build
