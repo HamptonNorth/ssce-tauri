@@ -37,7 +37,7 @@
     },
     "windows": {
       "wix": {
-        "language": "en-GB"
+        "language": "en-US"
       }
     },
     "publisher": "Claude"
