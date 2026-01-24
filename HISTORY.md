@@ -256,6 +256,65 @@ App runs in system tray for quick access throughout the day.
 
 ---
 
+## 9. Application Icon Replacement
+
+### Session Date: January 2026
+
+### User Prompt:
+> "Use redmug-starter-icon-rh.svg and redmug-starter-icon-rh.png... Produce the icons needed for the ssce-tauri app"
+> "Replace all icons used in ssce-tauri with this new icon set"
+
+### Implementation Summary:
+
+**Icon Generation:**
+Replaced all application icons with new red mug design (#d01212) from `redmug-starter-icon-rh.png` source.
+
+**Icons Updated:**
+- Desktop app icons: 32x32, 64x64, 128x128, 128x128@2x, icon.png
+- Windows: icon.ico (multi-size: 16-256px)
+- Windows Store: Square30x30 through Square310x310Logo.png, StoreLogo.png
+- Tray: tray-icon.png (32x32), tray-icon.ico (16+32)
+- Android: All mipmap densities (mdpi through xxxhdpi) - ic_launcher, ic_launcher_round, ic_launcher_foreground
+- iOS: All AppIcon sizes (20x20 through 512@2x)
+- Web: favicon.svg, logo.svg
+
+**Critical Fix - PNG32 Format:**
+Initial icon generation caused build failures and dock icon flickering. Root cause: ImageMagick optimized PNGs to palette format instead of true RGBA.
+
+**Solution:** Use `PNG32:` output prefix with ImageMagick to force 8-bit RGBA format:
+```bash
+convert source.png -resize 32x32 PNG32:output.png
+```
+
+**Symptoms of incorrect format:**
+- Build error: "icon is not RGBA"
+- Misleading error: "Can't detect any appindicator library"
+- Dock icon flickering/animation on Ubuntu/GNOME
+
+**Left-handed variant:**
+Created flipped versions (`*-lh.png`, `*-lh.svg`) by applying 180° x-axis flip for alternative icon orientation.
+
+**Note:** macOS icon.icns not updated (requires macOS-specific tools like `iconutil`).
+
+**Files Modified:**
+- `src-tauri/icons/` - All PNG, ICO files
+- `src-tauri/icons/android/` - All mipmap directories
+- `src-tauri/icons/ios/` - All AppIcon files
+- `src/favicon.svg` - Web favicon
+- `src/images/logo.svg` - Application logo
+
+**Files Created (in project root, not committed):**
+- `redmug-starter-icon-rh.png` - Source icon (512x512)
+- `redmug-starter-icon-rh.svg` - Source SVG
+- `redmug-starter-icon-lh.png` - Flipped variant
+- `redmug-starter-icon-lh.svg` - Flipped SVG
+
+**External Files Created:**
+- `~/icons/tray-icon2/` - Icon set with all sizes and documentation
+- `~/icons/tray-icon2/icon-usage.md` - Usage summary
+
+---
+
 ## Project Statistics
 
 **Rust Backend:**
@@ -282,5 +341,5 @@ App runs in system tray for quick access throughout the day.
 
 ---
 
-*Version: 1.0.3*
+*Version: 1.0.4*
 *Last Updated: January 2026*

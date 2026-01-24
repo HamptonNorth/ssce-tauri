@@ -264,9 +264,37 @@ Planned for future implementation using GitHub Releases:
 
 ## Common Issues
 
-1. **Build fails with "icon not RGBA"**: Icons must have alpha channel
+1. **Build fails with "icon not RGBA"**: Icons must have alpha channel. Use ImageMagick with `PNG32:` prefix to force 8-bit RGBA format (e.g., `convert source.png -resize 32x32 PNG32:output.png`)
 2. **WebKitGTK errors**: Install required system packages
 3. **Hot reload not working**: Press Ctrl+R or F5 to force refresh
+4. **Dock icon flickering/animating**: Caused by malformed PNG icons without proper RGBA format. Regenerate icons with PNG32 format
+
+## Icon Generation
+
+When regenerating application icons, use ImageMagick with the `PNG32:` output prefix to ensure proper 8-bit RGBA format required by Tauri:
+
+```bash
+# Example: Generate all standard sizes from a 512x512 source
+SOURCE="source-icon.png"
+convert $SOURCE -resize 32x32 PNG32:src-tauri/icons/32x32.png
+convert $SOURCE -resize 64x64 PNG32:src-tauri/icons/64x64.png
+convert $SOURCE -resize 128x128 PNG32:src-tauri/icons/128x128.png
+convert $SOURCE -resize 256x256 PNG32:src-tauri/icons/128x128@2x.png
+convert $SOURCE -resize 512x512 PNG32:src-tauri/icons/icon.png
+
+# Tray icons
+convert $SOURCE -resize 32x32 PNG32:src-tauri/icons/tray-icon.png
+
+# Windows ICO (multi-size)
+convert $SOURCE -resize 16x16 PNG32:/tmp/icon-16.png
+convert $SOURCE -resize 32x32 PNG32:/tmp/icon-32.png
+convert /tmp/icon-16.png /tmp/icon-32.png src-tauri/icons/tray-icon.ico
+```
+
+**Important**: Without `PNG32:`, ImageMagick may optimize PNGs to palette format, causing:
+- Tauri build failures with "icon is not RGBA" error
+- Misleading "Can't detect any appindicator library" errors
+- Dock icon flickering on Ubuntu/GNOME
 
 ## Resources
 
@@ -276,5 +304,5 @@ Planned for future implementation using GitHub Releases:
 
 ---
 
-*Version: 1.0.3*
+*Version: 1.0.4*
 *Last Updated: January 2026*
