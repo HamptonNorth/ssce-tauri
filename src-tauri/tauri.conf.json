@@ -27,8 +27,7 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.icns"],
     "resources": {
       "../src/config/defaults.json": "config/defaults.json",
-      "../src/config/build-time.txt": "config/build-time.txt",
-      "../.env": ".env"
+      "../src/config/build-time.txt": "config/build-time.txt"
     },
     "linux": {
       "deb": {
