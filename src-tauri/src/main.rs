@@ -496,6 +496,59 @@ fn get_user_config_path() -> Result<String, String> {
     Ok(config_path.to_string_lossy().to_string())
 }
 
+/// Open a file in the default browser
+#[tauri::command]
+fn open_in_default_app(path: String) -> Result<(), String> {
+    // Convert to file:// URL
+    let url = if path.starts_with("file://") {
+        path
+    } else {
+        format!("file://{}", path)
+    };
+
+    #[cfg(target_os = "linux")]
+    {
+        // Skip xdg-open - try browsers directly to avoid text editor association
+        let browsers = [
+            "google-chrome",
+            "google-chrome-stable",
+            "chromium",
+            "chromium-browser",
+            "firefox",
+        ];
+
+        for browser in browsers {
+            if std::process::Command::new(browser)
+                .arg(&url)
+                .spawn()
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+
+        Err("No browser found. Install Chrome, Chromium, or Firefox.".to_string())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &url])
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+        Ok(())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -572,6 +625,7 @@ fn main() {
             get_defaults_config,
             save_defaults_config,
             get_user_config_path,
+            open_in_default_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

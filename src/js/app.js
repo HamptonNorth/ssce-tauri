@@ -161,7 +161,7 @@ async function init() {
   // Set up event listeners
   initToolbarEvents({
     newCanvas: () => newCanvas(updateStatusBar),
-    openFile,
+    openFile: () => openFile(updateStatusBar),
     handleSave: () => handleSaveWithSsceSupport(updateStatusBar),
     handleSaveAs: () => handleSaveAsWithSsceSupport(updateStatusBar),
     handlePrint: () => handlePrint(showPrintDialog),
@@ -182,7 +182,7 @@ async function init() {
   });
   initKeyboardShortcuts({
     newCanvas: () => newCanvas(updateStatusBar),
-    openFile,
+    openFile: () => openFile(updateStatusBar),
     handleSave: () => handleSaveWithSsceSupport(updateStatusBar),
     handleSaveAs: () => handleSaveAsWithSsceSupport(updateStatusBar),
     handlePrint: () => handlePrint(showPrintDialog),
@@ -669,28 +669,36 @@ async function handleSnapshot(updateStatusBar) {
     return; // User cancelled
   }
 
-  // Flatten canvas to image without modifying layers
-  // Get the current canvas element (already has all layers rendered)
-  const canvas = modules.canvasManager.getCanvas();
+  // Show spinner while creating snapshot (can be slow for large images)
+  const { showSpinner, hideSpinner } = await import("./utils/spinner.js");
+  showSpinner();
 
-  // Create the snapshot object
-  const snapshot = createSnapshot({
-    canvas,
-    frontMatter,
-    id: nextId,
-  });
+  try {
+    // Flatten canvas to image without modifying layers
+    // Get the current canvas element (already has all layers rendered)
+    const canvas = modules.canvasManager.getCanvas();
 
-  // Add to session state
-  addSnapshot(snapshot);
+    // Create the snapshot object
+    const snapshot = createSnapshot({
+      canvas,
+      frontMatter,
+      id: nextId,
+    });
 
-  // Update View Snapshots button state (now enabled)
-  updateViewSnapshotsButton();
+    // Add to session state
+    addSnapshot(snapshot);
 
-  showToast(`Snapshot ${nextId} captured`, "success");
+    // Update View Snapshots button state (now enabled)
+    updateViewSnapshotsButton();
 
-  // Update status bar to show unsaved changes
-  if (updateStatusBar) {
-    updateStatusBar();
+    showToast(`Snapshot ${nextId} captured`, "success");
+
+    // Update status bar to show unsaved changes
+    if (updateStatusBar) {
+      updateStatusBar();
+    }
+  } finally {
+    hideSpinner();
   }
 }
 

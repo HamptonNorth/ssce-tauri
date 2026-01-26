@@ -279,6 +279,43 @@ export function getDefaultInitials() {
 }
 
 /**
+ * Get print settings from config
+ * @returns {Object} Print config {paperSize, paddingVertical, paddingHorizontal}
+ */
+export function getPrintConfig() {
+  return (
+    defaults?.print ?? {
+      paperSize: "a4",
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+    }
+  );
+}
+
+/**
+ * Save print settings to config file
+ * Updates the defaults object and saves to user config via Tauri
+ * @param {Object} printSettings - Print settings to save
+ * @returns {Promise<void>}
+ */
+export async function savePrintConfig(printSettings) {
+  if (!defaults) return;
+
+  // Update local defaults
+  defaults.print = { ...defaults.print, ...printSettings };
+
+  // Save to user config via Tauri if available
+  if (isTauri()) {
+    try {
+      const invoke = window.__TAURI__.core.invoke;
+      await invoke("save_defaults_config", { data: JSON.stringify(defaults, null, 2) });
+    } catch (error) {
+      console.error("Failed to save print config:", error);
+    }
+  }
+}
+
+/**
  * Get toast duration for non-error messages
  * @returns {number} Duration in milliseconds
  */
@@ -356,10 +393,10 @@ function getFallbackDefaults() {
       xl: 0.4,
     },
     textSizes: {
-      xs: { fontSize: 12, fontWeight: 400 },
-      sm: { fontSize: 16, fontWeight: 500 },
-      md: { fontSize: 20, fontWeight: 600 },
-      lg: { fontSize: 28, fontWeight: 700 },
+      xs: { fontSize: 8, fontWeight: 400 },
+      sm: { fontSize: 11, fontWeight: 500 },
+      md: { fontSize: 14, fontWeight: 600 },
+      lg: { fontSize: 20, fontWeight: 700 },
     },
     textLineHeight: 1.2,
     arrowheadStyles: {
@@ -375,6 +412,11 @@ function getFallbackDefaults() {
     },
     user: {
       initials: "",
+    },
+    print: {
+      paperSize: "a4",
+      paddingVertical: 10,
+      paddingHorizontal: 10,
     },
   };
 }

@@ -12,9 +12,10 @@
  */
 
 import { state, modules } from "../../state.js";
-import { printImage } from "../../utils/export.js";
+import { printImage, exportPrintDebugHtml } from "../../utils/export.js";
 import { showToast } from "../../utils/toast.js";
 import { showConfirmModal } from "./alert-confirm.js";
+import { getPrintConfig, savePrintConfig } from "../../utils/config.js";
 
 // Callback storage for image dialogs
 let callbacks = {
@@ -63,10 +64,7 @@ export function initImageDialogs(options) {
   // Print dialog
   const printDialog = document.getElementById("dialog-print");
   document.getElementById("print-cancel").addEventListener("click", () => printDialog.close());
-  document.getElementById("print-preview").addEventListener("click", () => {
-    printDialog.close();
-    window.print();
-  });
+  document.getElementById("print-debug").addEventListener("click", handlePrintDebug);
   printDialog.addEventListener("submit", handlePrintSubmit);
 
   // Combine dialog
@@ -322,19 +320,71 @@ async function handleResizeSubmit(e) {
 
 /**
  * Show the print options dialog
+ * Pre-populates with saved config values
  */
 export function showPrintDialog() {
+  const printConfig = getPrintConfig();
+
+  // Set paper size radio
+  const paperSizeRadio = document.querySelector(`input[name="paperSize"][value="${printConfig.paperSize}"]`);
+  if (paperSizeRadio) paperSizeRadio.checked = true;
+
+  // Set padding values
+  const paddingVertical = document.querySelector('input[name="paddingVertical"]');
+  const paddingHorizontal = document.querySelector('input[name="paddingHorizontal"]');
+  if (paddingVertical) paddingVertical.value = printConfig.paddingVertical ?? 10;
+  if (paddingHorizontal) paddingHorizontal.value = printConfig.paddingHorizontal ?? 10;
+
   document.getElementById("dialog-print").showModal();
 }
 
 /**
  * Handle print dialog form submission
  */
-function handlePrintSubmit(e) {
+async function handlePrintSubmit(e) {
   e.preventDefault();
+
   const orientation = document.querySelector('input[name="orientation"]:checked').value;
-  printImage(modules.canvasManager, orientation);
+  const paperSize = document.querySelector('input[name="paperSize"]:checked').value;
+  const paddingVertical = parseInt(document.querySelector('input[name="paddingVertical"]').value) || 10;
+  const paddingHorizontal = parseInt(document.querySelector('input[name="paddingHorizontal"]').value) || 10;
+
+  // Save paper size to config (persists across sessions)
+  await savePrintConfig({ paperSize, paddingVertical, paddingHorizontal });
+
+  // Get filename from state
+  const filename = state.filename || "";
+
+  printImage(modules.canvasManager, {
+    orientation,
+    paperSize,
+    paddingVertical,
+    paddingHorizontal,
+    filename,
+  });
+
   document.getElementById("dialog-print").close();
+}
+
+/**
+ * Handle print debug button - exports HTML and opens in browser
+ */
+async function handlePrintDebug() {
+  const orientation = document.querySelector('input[name="orientation"]:checked').value;
+  const paperSize = document.querySelector('input[name="paperSize"]:checked').value;
+  const paddingVertical = parseInt(document.querySelector('input[name="paddingVertical"]').value) || 10;
+  const paddingHorizontal = parseInt(document.querySelector('input[name="paddingHorizontal"]').value) || 10;
+  const filename = state.filename || "";
+
+  document.getElementById("dialog-print").close();
+
+  await exportPrintDebugHtml(modules.canvasManager, {
+    orientation,
+    paperSize,
+    paddingVertical,
+    paddingHorizontal,
+    filename,
+  });
 }
 
 // ============================================================================

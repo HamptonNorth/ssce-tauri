@@ -25,26 +25,20 @@
                 padding: 2rem;
             }
 
-            /* Print styles - hide non-essential elements */
-            @media print {
-                #page-header,
-                #btn-print {
-                    display: none !important;
-                }
-
-                body {
-                    background: white !important;
-                }
-
-                #markdown-content {
-                    padding: 0 !important;
-                }
+            /* Dialog styles */
+            dialog {
+                border: none;
+                border-radius: 0.5rem;
+                padding: 0;
+                max-width: 400px;
+                width: 90%;
             }
-
-            /* A4 Page setup for print */
-            @page {
-                size: A4;
-                margin: 2cm 2.5cm;
+            dialog::backdrop {
+                background: rgba(0, 0, 0, 0.5);
+            }
+            dialog[open] {
+                display: flex;
+                flex-direction: column;
             }
         </style>
     </head>
@@ -53,24 +47,72 @@
         <div id="page-header" class="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
             <div class="max-w-7xl mx-auto flex items-center justify-between">
                 <h1 class="text-2xl font-bold text-gray-800">SSCE User Documentation</h1>
-                <button
-                    id="btn-print"
-                    onclick="window.print()"
-                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    title="Print this page"
-                >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                        />
-                    </svg>
-                    <span>Print to A4</span>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="btn-print" onclick="showPrintDialog()" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors" title="Export to browser for printing">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        <span>Export to Browser</span>
+                    </button>
+                    <a href="/index.html" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors" title="Back to Editor">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span>Back</span>
+                    </a>
+                </div>
             </div>
         </div>
+
+        <!-- Print Options Dialog -->
+        <dialog id="dialog-print" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50">
+            <h2 class="text-lg font-semibold mb-4">Print Options</h2>
+            <form method="dialog" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Paper Size</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="paperSize" value="a4" checked class="text-blue-500" />
+                            A4
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="paperSize" value="letter" class="text-blue-500" />
+                            US Letter
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Orientation</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="orientation" value="portrait" checked class="text-blue-500" />
+                            Portrait
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="orientation" value="landscape" class="text-blue-500" />
+                            Landscape
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Padding (mm)</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Top / Bottom</label>
+                            <input type="number" name="paddingVertical" value="15" min="0" max="50" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Left / Right</label>
+                            <input type="number" name="paddingHorizontal" value="20" min="0" max="50" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm" />
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="print-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="submit" id="print-confirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Export to Browser</button>
+                </div>
+            </form>
+        </dialog>
 
         <!-- Markdown Content Container -->
         <div id="markdown-content" class="md-github bg-white shadow-lg">
@@ -78,12 +120,15 @@
         </div>
 
         <script>
+            // Document filename for footer
+            const DOCUMENT_FILENAME = "USER_DOCUMENTATION.md";
+
             // Fetch and render the USER_DOCUMENTATION.md file
             async function loadDocumentation() {
                 try {
-                    const response = await fetch('/USER_DOCUMENTATION.md');
+                    const response = await fetch("/USER_DOCUMENTATION.md");
                     if (!response.ok) {
-                        throw new Error('Failed to load documentation');
+                        throw new Error("Failed to load documentation");
                     }
 
                     const markdown = await response.text();
@@ -100,11 +145,11 @@
                     const html = marked.parse(markdown);
 
                     // Inject into page
-                    const contentEl = document.getElementById('markdown-content');
+                    const contentEl = document.getElementById("markdown-content");
                     contentEl.innerHTML = html;
                 } catch (error) {
-                    console.error('Error loading documentation:', error);
-                    const contentEl = document.getElementById('markdown-content');
+                    console.error("Error loading documentation:", error);
+                    const contentEl = document.getElementById("markdown-content");
                     contentEl.innerHTML = `
                         <div class="text-center py-8">
                             <p class="text-red-600 font-semibold mb-2">Failed to load documentation</p>
@@ -114,8 +159,387 @@
                 }
             }
 
-            // Load documentation on page load
-            document.addEventListener('DOMContentLoaded', loadDocumentation);
+            // Show print options dialog
+            function showPrintDialog() {
+                const dialog = document.getElementById("dialog-print");
+
+                // Load saved preferences from localStorage
+                const savedPaperSize = localStorage.getItem("ssce_print_paperSize") || "a4";
+                const savedPaddingV = localStorage.getItem("ssce_print_paddingVertical") || "15";
+                const savedPaddingH = localStorage.getItem("ssce_print_paddingHorizontal") || "20";
+
+                // Set radio button
+                const paperSizeRadio = document.querySelector(`input[name="paperSize"][value="${savedPaperSize}"]`);
+                if (paperSizeRadio) paperSizeRadio.checked = true;
+
+                // Set padding values
+                document.querySelector('input[name="paddingVertical"]').value = savedPaddingV;
+                document.querySelector('input[name="paddingHorizontal"]').value = savedPaddingH;
+
+                dialog.showModal();
+            }
+
+            // Handle export to browser
+            async function handleExport(e) {
+                e.preventDefault();
+
+                const paperSize = document.querySelector('input[name="paperSize"]:checked').value;
+                const orientation = document.querySelector('input[name="orientation"]:checked').value;
+                const paddingVertical = parseInt(document.querySelector('input[name="paddingVertical"]').value) || 15;
+                const paddingHorizontal = parseInt(document.querySelector('input[name="paddingHorizontal"]').value) || 20;
+
+                // Save preferences to localStorage
+                localStorage.setItem("ssce_print_paperSize", paperSize);
+                localStorage.setItem("ssce_print_paddingVertical", paddingVertical.toString());
+                localStorage.setItem("ssce_print_paddingHorizontal", paddingHorizontal.toString());
+
+                // Close dialog
+                document.getElementById("dialog-print").close();
+
+                // Export to browser
+                await exportToBrowser({ paperSize, orientation, paddingVertical, paddingHorizontal });
+            }
+
+            // Export markdown content as HTML and open in browser
+            async function exportToBrowser(options) {
+                const { paperSize, orientation, paddingVertical, paddingHorizontal } = options;
+                const paperSizeValue = paperSize === "letter" ? "letter" : "A4";
+
+                // Page dimensions in mm
+                const pageWidthMm = paperSizeValue === "A4" ? (orientation === "portrait" ? 210 : 297) : orientation === "portrait" ? 215.9 : 279.4;
+                const pageHeightMm = paperSizeValue === "A4" ? (orientation === "portrait" ? 297 : 210) : orientation === "portrait" ? 279.4 : 215.9;
+
+                // Get the markdown content
+                const content = document.getElementById("markdown-content").innerHTML;
+
+                // Fetch the md-github.css content
+                let mdGithubCss = "";
+                try {
+                    const cssResponse = await fetch("/css/md-github.css");
+                    if (cssResponse.ok) {
+                        mdGithubCss = await cssResponse.text();
+                    }
+                } catch (err) {
+                    console.warn("Could not load md-github.css:", err);
+                }
+
+                // Create standalone HTML document with JavaScript-based pagination
+                const html =
+                    `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Print Preview - ${DOCUMENT_FILENAME}</title>
+  <style>
+    /* Embedded GitHub Markdown styles */
+    ${mdGithubCss}
+
+    /* ========== SCREEN STYLES ========== */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #555;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    .pages-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .page {
+      width: ${pageWidthMm}mm;
+      height: ${pageHeightMm}mm;
+      background: white;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      padding: ${paddingVertical}mm ${paddingHorizontal}mm;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .page-content {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Apply print font sizes to screen preview for accurate pagination */
+    .page-content.md-github {
+      font-size: 10pt;
+      line-height: 1.4;
+    }
+    .page-content.md-github h1 { font-size: 14pt; }
+    .page-content.md-github h2 { font-size: 12pt; }
+    .page-content.md-github h3 { font-size: 11pt; }
+    .page-content.md-github h4 { font-size: 10pt; }
+    .page-content.md-github code { font-size: 8pt; }
+
+    .page-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      color: #888888;
+      padding-top: 3mm;
+      border-top: 1px solid #e0e0e0;
+      margin-top: 3mm;
+      flex-shrink: 0;
+    }
+
+    /* Hidden content source */
+    #content-source {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      width: ${pageWidthMm - paddingHorizontal * 2}mm;
+    }
+
+    /* Loading message */
+    .loading-message {
+      text-align: center;
+      padding: 40px;
+      color: white;
+      font-size: 18px;
+    }
+
+    /* ========== PRINT STYLES ========== */
+    /* These must mirror screen styles for consistent layout */
+    @media print {
+      @page {
+        size: ${paperSizeValue} ${orientation};
+        margin: 0;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: white;
+      }
+
+      .pages-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+
+      .page {
+        width: 100%;
+        height: 100vh;
+        background: white;
+        box-shadow: none;
+        padding: ${paddingVertical}mm ${paddingHorizontal}mm;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        box-sizing: border-box;
+        overflow: hidden;
+        margin: 0;
+        page-break-after: always;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .page:last-child {
+        page-break-after: auto;
+      }
+
+      .page-content {
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .page-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: Arial, sans-serif;
+        font-size: 11px;
+        color: #888888;
+        padding-top: 3mm;
+        border-top: 1px solid #e0e0e0;
+        margin-top: 3mm;
+        flex-shrink: 0;
+      }
+
+      #content-source, .loading-message {
+        display: none;
+      }
+
+      /* Override md-github page-break rules - we handle pagination ourselves */
+      .md-github h1, .md-github h2, .md-github h3, .md-github h4, .md-github h5, .md-github h6 {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+      .md-github ul, .md-github ol, .md-github pre, .md-github table, .md-github blockquote {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Hidden source content -->
+  <div id="content-source" class="md-github">${content}</div>
+
+  <!-- Loading indicator -->
+  <div class="loading-message">Preparing pages...</div>
+
+  <!-- Pages will be generated here -->
+  <div class="pages-container" id="pages-container"></div>
+
+  <script>
+    // Pagination configuration
+    const PAGE_WIDTH_MM = ${pageWidthMm};
+    const PAGE_HEIGHT_MM = ${pageHeightMm};
+    const PADDING_V_MM = ${paddingVertical};
+    const PADDING_H_MM = ${paddingHorizontal};
+    const FOOTER_HEIGHT_MM = 10; // Footer + margin
+    const FILENAME = "${DOCUMENT_FILENAME}";
+
+    // Convert mm to pixels (approximate, 96 DPI)
+    const MM_TO_PX = 3.7795275591;
+    const contentHeightPx = (PAGE_HEIGHT_MM - (PADDING_V_MM * 2) - FOOTER_HEIGHT_MM) * MM_TO_PX;
+
+    // Wait for DOM and fonts to load
+    window.addEventListener('load', function() {
+      setTimeout(paginateContent, 100);
+    });
+
+    function paginateContent() {
+      var source = document.getElementById('content-source');
+      var container = document.getElementById('pages-container');
+      var loadingMsg = document.querySelector('.loading-message');
+
+      // Create a test container that matches page content area with print font sizes
+      var testContainer = document.createElement('div');
+      testContainer.className = 'page-content md-github';
+      testContainer.style.cssText = 'position: absolute; left: -9999px; top: 0; width: ' + (PAGE_WIDTH_MM - (PADDING_H_MM * 2)) + 'mm; visibility: hidden;';
+      document.body.appendChild(testContainer);
+
+      // Flatten elements - extract children from large containers if needed
+      var allElements = [];
+      Array.from(source.children).forEach(function(el) {
+        allElements.push(el.cloneNode(true));
+      });
+
+      // Build pages by measuring cumulative height
+      var pages = [];
+      var currentPageDiv = document.createElement('div');
+      testContainer.appendChild(currentPageDiv);
+
+      allElements.forEach(function(el) {
+        // Add element to test container
+        currentPageDiv.appendChild(el.cloneNode(true));
+        var totalHeight = currentPageDiv.offsetHeight;
+
+        if (totalHeight > contentHeightPx && currentPageDiv.children.length > 1) {
+          // Remove last element - it caused overflow
+          currentPageDiv.removeChild(currentPageDiv.lastChild);
+
+          // Save current page content
+          var pageElements = Array.from(currentPageDiv.children).map(function(c) { return c.cloneNode(true); });
+          pages.push(pageElements);
+
+          // Start new page with the overflow element
+          currentPageDiv.innerHTML = '';
+          currentPageDiv.appendChild(el.cloneNode(true));
+        }
+      });
+
+      // Add remaining content as last page
+      if (currentPageDiv.children.length > 0) {
+        var pageElements = Array.from(currentPageDiv.children).map(function(c) { return c.cloneNode(true); });
+        pages.push(pageElements);
+      }
+
+      // Clean up test container
+      document.body.removeChild(testContainer);
+
+      // Generate page HTML
+      var totalPages = pages.length;
+      pages.forEach(function(pageElements, pageIndex) {
+        var page = document.createElement('div');
+        page.className = 'page';
+
+        var pageContent = document.createElement('div');
+        pageContent.className = 'page-content md-github';
+        pageElements.forEach(function(el) { pageContent.appendChild(el); });
+
+        var pageFooter = document.createElement('div');
+        pageFooter.className = 'page-footer';
+        pageFooter.innerHTML = '<span>' + FILENAME + '</span><span>Page ' + (pageIndex + 1) + ' of ' + totalPages + '</span>';
+
+        page.appendChild(pageContent);
+        page.appendChild(pageFooter);
+        container.appendChild(page);
+      });
+
+      // Hide loading message
+      loadingMsg.style.display = 'none';
+    }
+  <` +
+                    `/script>
+</body>
+</html>`;
+
+                // Save and open via Tauri
+                if (window.__TAURI__) {
+                    try {
+                        const invoke = window.__TAURI__.core.invoke;
+
+                        // Get temp directory and save file
+                        const homeDir = await invoke("get_home_dir");
+                        const filePath = `${homeDir}/.ssce-temp/help-print-preview.html`;
+
+                        // Ensure temp directory exists and write file
+                        await invoke("save_autosave", {
+                            data: html,
+                            filename: "help-print-preview.html",
+                            directory: ".ssce-temp",
+                        });
+
+                        // Open in default browser
+                        await invoke("open_in_default_app", { path: filePath });
+                    } catch (err) {
+                        console.error("Failed to open in browser:", err);
+                        // Fall back to download
+                        downloadHtmlFile(html);
+                    }
+                } else {
+                    downloadHtmlFile(html);
+                }
+            }
+
+            // Download HTML as file (fallback)
+            function downloadHtmlFile(html) {
+                const blob = new Blob([html], { type: "text/html" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "help-print-preview.html";
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            // Initialize event listeners
+            document.addEventListener("DOMContentLoaded", () => {
+                loadDocumentation();
+
+                // Dialog event listeners
+                const dialog = document.getElementById("dialog-print");
+                document.getElementById("print-cancel").addEventListener("click", () => dialog.close());
+                dialog.addEventListener("submit", handleExport);
+            });
         </script>
     </body>
 </html>

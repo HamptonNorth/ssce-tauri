@@ -64,10 +64,10 @@
     "xl": 0.4
   },
   "textSizes": {
-    "xs": { "fontSize": 12, "fontWeight": 400 },
-    "sm": { "fontSize": 16, "fontWeight": 500 },
-    "md": { "fontSize": 20, "fontWeight": 600 },
-    "lg": { "fontSize": 28, "fontWeight": 700 }
+    "xs": { "fontSize": 8, "fontWeight": 400 },
+    "sm": { "fontSize": 11, "fontWeight": 500 },
+    "md": { "fontSize": 14, "fontWeight": 600 },
+    "lg": { "fontSize": 20, "fontWeight": 700 }
   },
   "textLineHeight": 1.2,
   "arrowheadStyles": {
@@ -104,5 +104,10 @@
   },
   "user": {
     "initials": ""
+  },
+  "print": {
+    "paperSize": "a4",
+    "paddingVertical": 10,
+    "paddingHorizontal": 10
   }
 }

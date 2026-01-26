@@ -11,11 +11,6 @@ import { showToast } from "./utils/toast.js";
 import { showSpinner, hideSpinner } from "./utils/spinner.js";
 import * as bridge from "./tauri-bridge.js";
 
-// TESTING: Add artificial delay to file operations to verify spinner visibility
-// TODO: Remove this after spinner testing is complete
-const SPINNER_TEST_DELAY_MS = 5000;
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 // ============================================================================
 // File Operations
 // ============================================================================
@@ -95,9 +90,6 @@ async function loadFileFromPath(filePath, updateStatusBar) {
   modules.layerManager.clear();
   modules.canvasManager.render();
   showSpinner();
-
-  // TESTING: Artificial delay for spinner visibility testing
-  await delay(SPINNER_TEST_DELAY_MS);
 
   try {
     if (isSsce) {
@@ -316,8 +308,6 @@ export async function handleSave(handleSaveAs, updateStatusBar) {
   // If we have a current file path and it's not an ssce file being saved as image, save directly
   if (state.currentFilePath && bridge.isTauri()) {
     showSpinner();
-    // TESTING: Artificial delay for spinner visibility testing
-    await delay(SPINNER_TEST_DELAY_MS);
     try {
       const imageData = modules.canvasManager.toDataURL();
       await bridge.saveImage(state.currentFilePath, imageData);
@@ -384,8 +374,6 @@ async function saveAsNative(updateStatusBar) {
   if (!filePath) return; // User cancelled
 
   showSpinner();
-  // TESTING: Artificial delay for spinner visibility testing
-  await delay(SPINNER_TEST_DELAY_MS);
   try {
     // Get image data with appropriate format
     const ext = bridge.getExtension(filePath);
@@ -449,8 +437,6 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
     if (!filePath) return { success: false, error: "Cancelled" };
 
     showSpinner();
-    // TESTING: Artificial delay for spinner visibility testing
-    await delay(SPINNER_TEST_DELAY_MS);
     // Serialize session data
     const { serialize } = await import("./utils/ssce-format.js");
 
