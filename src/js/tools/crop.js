@@ -11,6 +11,7 @@
 import { DragHandleSet, HandleType } from "../utils/drag-handles.js";
 import { flattenToImage, replaceWithImage } from "../utils/image-ops.js";
 import { state } from "../state.js";
+import { showSpinner, hideSpinner } from "../utils/spinner.js";
 
 export class CropTool {
   constructor(canvasManager, layerManager, notifyChange) {
@@ -141,8 +142,8 @@ export class CropTool {
   handleMouseDown(e) {
     if (!this.isActive || e.button !== 0) return;
 
-    const screenPos = this.canvasManager.getMousePos(e);
-    const pos = this.screenToCanvas(screenPos.x, screenPos.y);
+    // getMousePos already converts screen coords to canvas coords (accounting for zoom)
+    const pos = this.canvasManager.getMousePos(e);
     const x = pos.x;
     const y = pos.y;
 
@@ -177,8 +178,8 @@ export class CropTool {
   handleMouseMove(e) {
     if (!this.isActive) return;
 
-    const screenPos = this.canvasManager.getMousePos(e);
-    const pos = this.screenToCanvas(screenPos.x, screenPos.y);
+    // getMousePos already converts screen coords to canvas coords (accounting for zoom)
+    const pos = this.canvasManager.getMousePos(e);
     const x = pos.x;
     const y = pos.y;
 
@@ -473,6 +474,7 @@ export class CropTool {
       return;
     }
 
+    showSpinner();
     try {
       // Flatten all layers to a single image
       const flatImage = await flattenToImage(this.canvasManager, this.layerManager);
@@ -507,6 +509,8 @@ export class CropTool {
         zoom.recalculateZoom();
       });
 
+      hideSpinner();
+
       // Show success message
       import("../utils/toast.js").then((toast) => {
         toast.showToast(`Cropped to ${croppedImage.width} × ${croppedImage.height}`, "success");
@@ -517,6 +521,7 @@ export class CropTool {
         toolbar.setActiveTool("select");
       });
     } catch (error) {
+      hideSpinner();
       console.error("Crop failed:", error);
       import("../utils/toast.js").then((toast) => {
         toast.showToast("Crop failed", "error");

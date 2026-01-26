@@ -14,7 +14,7 @@ import { state, modules } from "./state.js";
  * @param {Object} handlers - Object containing all handler functions
  */
 export function initKeyboardShortcuts(handlers) {
-  const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, handleCopyToClipboard, handlePasteFromClipboard, setActiveTool, loadImageFile } = handlers;
+  const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, handleCopyToClipboard, handlePasteFromClipboard, setActiveTool, loadImageFile, handleSnapshot } = handlers;
 
   document.addEventListener("keydown", (e) => {
     // Check for modifier keys
@@ -41,6 +41,12 @@ export function initKeyboardShortcuts(handlers) {
     if (ctrl && e.key === "p") {
       e.preventDefault();
       handlePrint();
+    }
+
+    // Take snapshot (Alt+S)
+    if (e.altKey && !ctrl && !shift && (e.key === "s" || e.key === "S")) {
+      e.preventDefault();
+      handleSnapshot();
     }
 
     // Undo/Redo (only when not in text input - let native undo/redo work there)

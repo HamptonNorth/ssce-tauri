@@ -8,6 +8,7 @@
  */
 
 import { getTextSize, getTextLineHeight } from "../utils/config.js";
+import { state } from "../state.js";
 
 export class TextTool {
   /**
@@ -73,33 +74,38 @@ export class TextTool {
 
   /**
    * Start editing text at a position
-   * @param {number} x
-   * @param {number} y
+   * @param {number} x - Canvas X coordinate
+   * @param {number} y - Canvas Y coordinate
    */
   startEditing(x, y) {
     this.isEditing = true;
 
-    // Position the text input
-    const wrapper = document.getElementById("canvas-wrapper");
-    const rect = wrapper.getBoundingClientRect();
+    // Get zoom scale for converting canvas coords to screen coords
+    const zoomScale = state.zoomScale || 1.0;
 
     // Get font size and weight from centralized config
     const sizeConfig = getTextSize(this.getSize());
     const lineHeight = sizeConfig.fontSize * getTextLineHeight();
 
-    // Store click position
+    // Store canvas coordinates for the layer (unscaled)
     // Adjust Y upward so text top edge aligns with click point (not baseline)
     // Canvas renders with textBaseline='top', so we store the adjusted position
     this.textX = x;
     this.textY = y - sizeConfig.fontSize; // Shift up by font height
 
-    // Position textarea to match where text will render
-    // (Textarea and canvas both use top-left positioning)
-    this.textInput.style.left = `${x}px`;
-    this.textInput.style.top = `${y - sizeConfig.fontSize}px`;
-    this.textInput.style.fontSize = `${sizeConfig.fontSize}px`;
+    // Convert canvas coordinates to screen coordinates for DOM positioning
+    // The textarea is positioned inside canvas-wrapper which has screen dimensions
+    const screenX = x * zoomScale;
+    const screenY = (y - sizeConfig.fontSize) * zoomScale;
+    const screenFontSize = sizeConfig.fontSize * zoomScale;
+    const screenLineHeight = lineHeight * zoomScale;
+
+    // Position textarea to match where text will appear on screen
+    this.textInput.style.left = `${screenX}px`;
+    this.textInput.style.top = `${screenY}px`;
+    this.textInput.style.fontSize = `${screenFontSize}px`;
     this.textInput.style.fontWeight = `${sizeConfig.fontWeight}`;
-    this.textInput.style.lineHeight = `${lineHeight}px`;
+    this.textInput.style.lineHeight = `${screenLineHeight}px`;
     this.textInput.style.color = this.getColour();
     this.textInput.style.fontFamily = "system-ui, -apple-system, sans-serif";
     this.textInput.style.minWidth = "200px"; // Minimum width for usability

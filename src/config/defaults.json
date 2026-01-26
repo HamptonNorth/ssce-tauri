@@ -1,4 +1,8 @@
 {
+  "paths": {
+    "defaultImageLoad": "~/Pictures/ssce",
+    "defaultImageSave": "~/Pictures/ssce-out"
+  },
   "tools": {
     "arrow": {
       "colour": "#FF0000",
@@ -96,7 +100,8 @@
   "autosave": {
     "enabled": true,
     "inactivitySeconds": 30,
-    "tempDirectory": ".ssce-temp"
+    "tempDirectory": ".ssce-temp",
+    "snapshotReminderEdits": 10
   },
   "toast": {
     "durationMs": 3000,

@@ -288,83 +288,19 @@ fn get_downloads_dir() -> Result<String, String> {
         .ok_or_else(|| "Could not determine downloads directory".to_string())
 }
 
-/// Environment settings from .env file
+/// Environment settings (build info only - paths now in defaults.json)
 #[derive(Serialize)]
 struct EnvConfig {
-    default_path_image_load: Option<String>,
-    default_path_image_save: Option<String>,
     show_build_timestamp: bool,
     build_timestamp: Option<String>,
 }
 
-/// Read environment settings from .env file
-/// Returns paths with ~ expanded to home directory
-/// Priority: user config dir > bundled > dev path > current directory
+/// Read build info settings
+/// Path settings are now in defaults.json, this only returns build timestamp info
 #[tauri::command]
 fn get_env_config(app_handle: tauri::AppHandle) -> Result<EnvConfig, String> {
-    let home_dir = dirs::home_dir()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-
-    // Try to load .env from multiple locations (in priority order)
-    let mut env_loaded = false;
-
-    // 1. User config directory (~/.config/ssce-desktop/.env)
-    if let Ok(user_config_dir) = get_user_config_dir() {
-        let user_env_path = user_config_dir.join(".env");
-        if user_env_path.exists() {
-            let _ = dotenvy::from_path(&user_env_path);
-            env_loaded = true;
-        }
-    }
-
-    // 2. Development path (relative to src-tauri directory)
-    if !env_loaded {
-        let dev_path = Path::new("../.env");
-        if dev_path.exists() {
-            let _ = dotenvy::from_path(dev_path);
-            env_loaded = true;
-        }
-    }
-
-    // 3. Production path (bundled with app) using Tauri v2 API
-    if !env_loaded {
-        if let Ok(resource_dir) = app_handle.path().resource_dir() {
-            let resource_env_path = resource_dir.join(".env");
-            if resource_env_path.exists() {
-                let _ = dotenvy::from_path(&resource_env_path);
-                env_loaded = true;
-            }
-        }
-    }
-
-    // 4. Linux-specific production path (deb package location)
-    #[cfg(target_os = "linux")]
-    if !env_loaded {
-        let linux_prod_path = Path::new("/usr/lib/SSCE Desktop/.env");
-        if linux_prod_path.exists() {
-            let _ = dotenvy::from_path(linux_prod_path);
-            env_loaded = true;
-        }
-    }
-
-    // 5. Fallback: current working directory
-    if !env_loaded {
-        let _ = dotenvy::dotenv();
-    }
-
-    // Helper to expand ~ in paths
-    let expand_path = |value: Option<String>| -> Option<String> {
-        value.map(|v| {
-            if v.starts_with("~/") {
-                format!("{}{}", home_dir, &v[1..])
-            } else {
-                v
-            }
-        })
-    };
-
-    // Check if we should show build timestamp (defaults to true, can be disabled via .env)
+    // Check if we should show build timestamp (defaults to true)
+    // Can be disabled via SHOW_BUILD_TIMESTAMP=false in environment
     let show_build_timestamp = std::env::var("SHOW_BUILD_TIMESTAMP")
         .map(|v| v.to_lowercase() != "false")
         .unwrap_or(true);
@@ -405,8 +341,6 @@ fn get_env_config(app_handle: tauri::AppHandle) -> Result<EnvConfig, String> {
     };
 
     Ok(EnvConfig {
-        default_path_image_load: expand_path(std::env::var("DEFAULT_PATH_IMAGE_LOAD").ok()),
-        default_path_image_save: expand_path(std::env::var("DEFAULT_PATH_IMAGE_SAVE").ok()),
         show_build_timestamp,
         build_timestamp,
     })
@@ -422,30 +356,36 @@ fn get_user_config_dir() -> Result<std::path::PathBuf, String> {
 
 /// Load the defaults.json configuration file
 /// Priority: user config > bundled config > dev config
+/// Expands ~ in paths.defaultImageLoad and paths.defaultImageSave
 #[tauri::command]
 fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let json_str: String;
+
     // First, check for user-customized config
     if let Ok(user_config_dir) = get_user_config_dir() {
         let user_config_path = user_config_dir.join("defaults.json");
         if user_config_path.exists() {
-            return fs::read_to_string(&user_config_path)
-                .map_err(|e| format!("Failed to read user defaults.json: {}", e));
+            json_str = fs::read_to_string(&user_config_path)
+                .map_err(|e| format!("Failed to read user defaults.json: {}", e))?;
+            return expand_paths_in_config(json_str);
         }
     }
 
     // Try development path (relative to src-tauri directory)
     let dev_path = Path::new("../src/config/defaults.json");
     if dev_path.exists() {
-        return fs::read_to_string(dev_path)
-            .map_err(|e| format!("Failed to read defaults.json: {}", e));
+        json_str = fs::read_to_string(dev_path)
+            .map_err(|e| format!("Failed to read defaults.json: {}", e))?;
+        return expand_paths_in_config(json_str);
     }
 
     // Try production path (bundled with app) using Tauri v2 API
     if let Ok(resource_dir) = app_handle.path().resource_dir() {
         let resource_path = resource_dir.join("config/defaults.json");
         if resource_path.exists() {
-            return fs::read_to_string(&resource_path)
-                .map_err(|e| format!("Failed to read defaults.json: {}", e));
+            json_str = fs::read_to_string(&resource_path)
+                .map_err(|e| format!("Failed to read defaults.json: {}", e))?;
+            return expand_paths_in_config(json_str);
         }
     }
 
@@ -454,13 +394,44 @@ fn get_defaults_config(app_handle: tauri::AppHandle) -> Result<String, String> {
     {
         let linux_prod_path = Path::new("/usr/lib/SSCE Desktop/config/defaults.json");
         if linux_prod_path.exists() {
-            return fs::read_to_string(linux_prod_path)
-                .map_err(|e| format!("Failed to read defaults.json: {}", e));
+            json_str = fs::read_to_string(linux_prod_path)
+                .map_err(|e| format!("Failed to read defaults.json: {}", e))?;
+            return expand_paths_in_config(json_str);
         }
     }
 
     // Fallback: return error to trigger frontend fallback
     Err("defaults.json not found in any config paths".to_string())
+}
+
+/// Expand ~ to home directory in paths section of config JSON
+fn expand_paths_in_config(json_str: String) -> Result<String, String> {
+    let home_dir = dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Parse JSON
+    let mut config: serde_json::Value = serde_json::from_str(&json_str)
+        .map_err(|e| format!("Failed to parse defaults.json: {}", e))?;
+
+    // Expand paths in the "paths" section if it exists
+    if let Some(paths) = config.get_mut("paths") {
+        if let Some(paths_obj) = paths.as_object_mut() {
+            for (_key, value) in paths_obj.iter_mut() {
+                if let Some(path_str) = value.as_str() {
+                    if path_str.starts_with("~/") {
+                        *value = serde_json::Value::String(
+                            format!("{}{}", home_dir, &path_str[1..])
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Serialize back to JSON
+    serde_json::to_string(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))
 }
 
 /// Save defaults.json to user config directory

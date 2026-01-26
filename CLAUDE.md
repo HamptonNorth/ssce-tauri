@@ -60,24 +60,28 @@ ssce-tauri/
 
 ## Configuration Architecture
 
-Configuration is split between two files:
+All user-configurable settings are now in `defaults.json`:
 
-### `.env` - Environment Settings
-User/machine-specific settings that vary between installations:
-- `DEFAULT_PATH_IMAGE_LOAD` - Default directory for Open dialog
-- `DEFAULT_PATH_IMAGE_SAVE` - Default directory for Save dialog
-
-### `src/config/defaults.json` - UI Configuration
-Application defaults for tools and UI (same across all installations):
+### `src/config/defaults.json` - Application Configuration
+All application settings (bundled with app, editable via Settings UI):
+- **File paths** - default directories for Open/Save dialogs (supports `~` expansion)
 - **Tool defaults** - colours, line styles, sizes for each tool
 - **Colour palette** - the 6 swatch colours
 - **Presets** - line widths, text sizes, arrowhead styles
 - **Symbols/Steps** - emoji characters for annotation tools
 - **Canvas settings** - background colour, transparency grid
 - **Resize limits** - warning/error thresholds
-- **Auto-save settings** - timing and temp directory
+- **Auto-save settings** - timing, temp directory, snapshot reminder threshold
+- **User settings** - initials for annotations
+- **Print settings** - paper size, margins
 
-The frontend loads `defaults.json` via Tauri command and falls back to hardcoded values in `src/js/utils/config.js` if loading fails. User preferences in localStorage override defaults.
+User customizations are saved to `~/.config/ssce-desktop/defaults.json` (Linux) or AppData (Windows) via the Settings UI, and take priority over bundled defaults.
+
+### `.env` - Development Settings (optional)
+Only used for development/build settings:
+- `SHOW_BUILD_TIMESTAMP` - Show build time in window title (for dev testing)
+
+The frontend loads `defaults.json` via Tauri command (with `~` paths expanded by Rust) and falls back to hardcoded values in `src/js/utils/config.js` if loading fails. User preferences in localStorage override defaults for tool-specific settings.
 
 ## Current Status
 
@@ -241,15 +245,123 @@ Visual feedback during file open/save:
 - CSS overlay with spinner animation in `src/css/app.css`
 - Integrated into load, save, save-as, and save-as-ssce flows
 
-### Auto-Updates (Deferred)
-Planned for future implementation using GitHub Releases:
-- Check frequency: Once per week on startup
-- User prompt: "Update available. Install on next restart?"
-- Installation: Downloads in background, installs on next app launch
-- Requires: signing keypair, tauri-plugin-updater, update manifest on GitHub
-
 ### Future Enhancements
 - Native menus (optional)
+
+---
+
+## Implementation Plan - v1.2.0 Release
+
+### Phase 1: Core Bug Fixes (High Impact)
+**Goal**: Fix issues that break core functionality
+
+#### 1.1 Canvas zoom/position calculation bug
+- **Issue**: When image loaded at <100% zoom, tool clicks register at wrong position (as if 100% zoom)
+- **Impact**: Makes cropping and drawing on zoomed images unusable
+- **Files**: Likely `src/js/canvas.js`, tool files in `src/js/tools/`
+- **Test**: Load large image → zoom to 40% → use text tool → verify click position matches cursor
+
+#### 1.2 Save/Save As filename not passed to native dialog  
+- **Issue**: Filename from SSCE UI not pre-populating native file dialog
+- **Files**: `src/js/file-operations.js`, `src-tauri/src/main.rs`
+- **Test**: Open image → Save As → verify filename field pre-populated
+
+#### 1.3 JPG extension morphed to PNG in native dialog
+- **Issue**: Selecting .jpg save changes to .png in dialog
+- **Files**: `src-tauri/src/main.rs` (save dialog filters)
+- **Test**: Save As → select JPG → verify filename keeps .jpg extension
+
+---
+
+### Phase 2: Missing Spinners
+**Goal**: Consistent loading feedback across all file operations
+
+#### 2.1 Add spinner to Recover (load .ssce file)
+- **Files**: `src/js/file-operations.js` or recovery dialog handler
+- **Test**: Trigger crash recovery → verify spinner shows during load
+
+#### 2.2 Add spinner to Save Snapshot
+- **Files**: `src/js/file-operations.js` or snapshot handler
+- **Test**: Save snapshot → verify spinner shows during save
+
+---
+
+### Phase 3: Settings & Persistence
+**Goal**: User-friendly configuration
+
+#### 3.1 Move directory settings from .env to config with native picker
+- **Current**: `DEFAULT_PATH_IMAGE_LOAD` and `DEFAULT_PATH_IMAGE_SAVE` in `.env`
+- **Target**: Add to Settings UI with native directory picker buttons
+- **Files**: 
+  - `src-tauri/src/main.rs` - Add `pick_directory` Tauri command
+  - `src/js/utils/config.js` - Add directory settings
+  - Settings UI - Add Browse buttons for Open/Save directories
+- **Test**: Open Settings → click Browse for Open directory → select folder → verify persisted
+
+#### 3.2 Verify initials persist in .ssce saves and snapshots
+- **Issue**: Check if initials setting is being written to config and persisting
+- **Files**: `src/js/utils/config.js`, save handlers
+- **Test**: Set initials → save .ssce → close app → reopen → verify initials restored
+
+---
+
+### Phase 4: Auto-Updates
+**Goal**: Seamless update delivery via GitHub Releases
+
+#### 4.1 Implement tauri-plugin-updater
+- Generate signing keypair
+- Configure update manifest for GitHub Releases
+- Check frequency: Once per week on startup
+- User prompt: "Update available. Install on next restart?"
+- **Files**: 
+  - `src-tauri/Cargo.toml` - Add updater plugin
+  - `src-tauri/tauri.conf.json` - Updater config
+  - `src-tauri/src/main.rs` - Update check logic
+  - Frontend - Update notification UI
+- **Test**: Build older version → publish new release → verify update prompt appears
+
+---
+
+### Phase 5: Flatpak Distribution
+**Goal**: Linux distribution via Flatpak
+
+#### 5.1 Create Flatpak manifest
+- Create `flatpak/org.ssce.desktop.yml` manifest
+- Configure sandbox permissions (file access, clipboard, tray)
+- Build and test locally
+- **Test**: Install via Flatpak → verify all features work (file dialogs, clipboard, tray)
+
+---
+
+### Phase 6: Release v1.2.0
+**Goal**: Version bump and release
+
+#### 6.1 Bump version to 1.2.0
+- `src-tauri/Cargo.toml`
+- `src-tauri/tauri.conf.json`
+- `CLAUDE.md` (this file)
+- `package.json` (if exists)
+- User documentation version references
+
+#### 6.2 GitHub Actions release
+- Trigger release workflow
+- Test Linux .deb/.AppImage
+- Test Windows .msi/.exe
+- Test Flatpak (if added to CI)
+
+---
+
+### Testing Checklist (between phases)
+
+After each phase, manually verify:
+- [ ] App starts without errors
+- [ ] Open image works
+- [ ] Save/Save As works (PNG and JPG)
+- [ ] Drawing tools work at various zoom levels
+- [ ] Clipboard copy/paste works
+- [ ] System tray works
+- [ ] Settings persist after restart
+- [ ] Crash recovery works
 
 ## Debugging
 

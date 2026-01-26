@@ -92,11 +92,24 @@ function startAutoSaveTimer() {
   const checkInterval = 10000;
 
   autoSaveTimer = setInterval(async () => {
-    if (!config.enabled) return;
-    if (!state.hasUnsavedChanges) return;
-    if (!modules.layerManager?.hasLayers()) return;
+    if (!config.enabled) {
+      console.log("SSCE AutoSave: Skipped - disabled");
+      return;
+    }
+    if (!state.hasUnsavedChanges) {
+      // Don't log this one - too noisy
+      return;
+    }
+    if (!modules.layerManager?.hasLayers()) {
+      console.log("SSCE AutoSave: Skipped - no layers");
+      return;
+    }
 
-    if (isInactive()) {
+    const inactive = isInactive();
+    const elapsed = (Date.now() - lastActivityTime) / 1000;
+    console.log(`SSCE AutoSave: Check - hasChanges=${state.hasUnsavedChanges}, inactive=${inactive}, elapsed=${elapsed.toFixed(1)}s`);
+
+    if (inactive) {
       await performAutoSave();
     }
   }, checkInterval);

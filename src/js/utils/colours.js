@@ -5,25 +5,22 @@
  * Palette colours are defined in config/defaults.json and loaded via config.js.
  */
 
-import { getPaletteColours as getConfigPaletteColours, getDefaults, getEnvConfig } from "./config.js";
+import { getPaletteColours as getConfigPaletteColours, getDefaults } from "./config.js";
 
 /**
  * Load colour and path configuration
- * Combines env config (paths) with defaults (UI settings)
+ * All settings now come from defaults.json
  * @returns {Promise<Object>} Configuration object
  */
 export async function loadColours() {
-  // Get environment config (paths from .env)
-  const envConfig = getEnvConfig();
-
-  // Get defaults (UI settings from defaults.json)
+  // Get defaults (all settings from defaults.json)
   const defaults = getDefaults();
 
   // Build config object matching expected structure
   return {
-    // Paths from .env
-    defaultPathImageLoad: envConfig?.default_path_image_load || null,
-    defaultPathImageSave: envConfig?.default_path_image_save || null,
+    // Paths from defaults.json (~ expanded by Rust backend)
+    defaultPathImageLoad: defaults?.paths?.defaultImageLoad || null,
+    defaultPathImageSave: defaults?.paths?.defaultImageSave || null,
 
     // Colours from defaults
     colours: defaults?.palette?.colours || {

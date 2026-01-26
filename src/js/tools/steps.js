@@ -74,9 +74,11 @@ export class StepsTool {
   handleClick(e) {
     if (!this.isActive) return;
 
-    const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Use canvasManager.getMousePos to convert screen coords to canvas coords
+    // This properly accounts for CSS zoom scaling
+    const pos = this.canvasManager.getMousePos(e);
+    const x = pos.x;
+    const y = pos.y;
 
     // Get current state
     const colour = state.currentColour;

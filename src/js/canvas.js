@@ -505,14 +505,49 @@ export class CanvasManager {
 
   /**
    * Export canvas as data URL
+   * @param {string} format - Image format: "image/png" or "image/jpeg" (default: "image/png")
+   * @param {number} quality - JPEG quality 0-1 (default: 0.92, only used for JPEG)
+   * @returns {string} Data URL
+   */
+  toDataURL(format = "image/png", quality = 0.92) {
+    // Handle legacy calls that pass width/height (e.g., for resize)
+    // If format looks like a number, it's the old signature
+    if (typeof format === "number" || format === null) {
+      return this.toDataURLResized(format, quality);
+    }
+
+    // Standard call with format
+    if (format === "image/jpeg") {
+      // JPEG doesn't support transparency - composite onto white background
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = this.canvas.width;
+      tempCanvas.height = this.canvas.height;
+      const tempCtx = tempCanvas.getContext("2d");
+
+      // Fill with white background
+      tempCtx.fillStyle = "#FFFFFF";
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+      // Draw the canvas content on top
+      tempCtx.drawImage(this.canvas, 0, 0);
+
+      return tempCanvas.toDataURL(format, quality);
+    }
+    return this.canvas.toDataURL("image/png");
+  }
+
+  /**
+   * Export canvas as data URL with optional resize
    * @param {number|null} targetWidth - Optional target width for resize
    * @param {number|null} targetHeight - Optional target height for resize
-   * @returns {string} PNG data URL
+   * @param {string} format - Image format (default: "image/png")
+   * @param {number} quality - JPEG quality (default: 0.92)
+   * @returns {string} Data URL
    */
-  toDataURL(targetWidth = null, targetHeight = null) {
-    // If no resize needed, return canvas directly
+  toDataURLResized(targetWidth = null, targetHeight = null, format = "image/png", quality = 0.92) {
+    // If no resize needed, use standard method
     if (!targetWidth && !targetHeight) {
-      return this.canvas.toDataURL("image/png");
+      return this.toDataURL(format, quality);
     }
 
     // Calculate dimensions maintaining aspect ratio
@@ -541,9 +576,18 @@ export class CanvasManager {
     tempCtx.imageSmoothingEnabled = true;
     tempCtx.imageSmoothingQuality = "high";
 
+    // For JPEG, fill with white background first (no transparency support)
+    if (format === "image/jpeg") {
+      tempCtx.fillStyle = "#FFFFFF";
+      tempCtx.fillRect(0, 0, newWidth, newHeight);
+    }
+
     // Draw scaled image
     tempCtx.drawImage(this.canvas, 0, 0, newWidth, newHeight);
 
+    if (format === "image/jpeg") {
+      return tempCanvas.toDataURL(format, quality);
+    }
     return tempCanvas.toDataURL("image/png");
   }
 

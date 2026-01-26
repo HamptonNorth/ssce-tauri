@@ -98,6 +98,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         <span>Snapshot</span>
+                        <span class="ml-auto text-xs text-gray-400">Alt+S</span>
                     </button>
                     <button id="menu-view-snapshots" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -836,7 +837,8 @@
 
         <!-- Front Matter Dialog -->
         <dialog id="dialog-front-matter" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[400px]">
-            <h2 id="front-matter-title" class="text-lg font-semibold mb-4">File Information</h2>
+            <h2 id="front-matter-title" class="text-lg font-semibold mb-1">File Information</h2>
+            <p id="front-matter-subtitle" class="text-sm text-gray-400 mb-4 hidden"></p>
             <form method="dialog" class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">Title</label>

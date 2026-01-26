@@ -16,6 +16,7 @@ import { state, modules } from "../state.js";
 import { DragHandleSet, HandleType } from "../utils/drag-handles.js";
 import { flattenToImage, replaceWithImage } from "../utils/image-ops.js";
 import { makeDraggable } from "../utils/draggable-panel.js";
+import { showSpinner, hideSpinner } from "../utils/spinner.js";
 
 export class CutTool {
   constructor(canvasManager, layerManager, notifyChange) {
@@ -505,6 +506,7 @@ export class CutTool {
       return;
     }
 
+    showSpinner();
     try {
       const flatImage = await flattenToImage(this.canvasManager, this.layerManager);
 
@@ -535,12 +537,15 @@ export class CutTool {
       }
 
       import("../utils/zoom.js").then((zoom) => zoom.recalculateZoom());
+
+      hideSpinner();
       import("../utils/toast.js").then((t) => t.showToast(`Cut applied: ${resultImage.width} × ${resultImage.height}`, "success"));
 
       // Reset cut strip for next cut (stay in cut tool)
       this.cutStrip = null;
       this.render();
     } catch (error) {
+      hideSpinner();
       console.error("Cut failed:", error);
       import("../utils/toast.js").then((t) => t.showToast("Cut failed", "error"));
     }

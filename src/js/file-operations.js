@@ -111,6 +111,8 @@ async function loadFileFromPath(filePath, updateStatusBar) {
       // Restore front matter and snapshots
       state.frontMatter = sessionData.frontMatter;
       state.snapshots = sessionData.snapshots;
+      state.currentSnapshotIndex = -1; // Reset snapshot navigation
+      state.savedLoadedState = null; // Clear any saved loaded state
 
       // Update file state
       state.filename = bridge.getFilename(filePath);
@@ -128,6 +130,9 @@ async function loadFileFromPath(filePath, updateStatusBar) {
       // Update View Snapshots button
       const dialogs = await import("./ui/dialogs/index.js");
       dialogs.updateViewSnapshotsButton();
+
+      // Update undo button state (may be enabled due to snapshots)
+      updateUndoRedoButtons();
 
       hideSpinner();
       showToast(`Loaded: ${state.filename}`, "success");
@@ -260,6 +265,8 @@ async function loadSsceFromFile(file, updateStatusBar) {
       // Restore front matter and snapshots
       state.frontMatter = sessionData.frontMatter;
       state.snapshots = sessionData.snapshots;
+      state.currentSnapshotIndex = -1; // Reset snapshot navigation
+      state.savedLoadedState = null; // Clear any saved loaded state
 
       // Update file state
       state.filename = file.name;
@@ -277,6 +284,9 @@ async function loadSsceFromFile(file, updateStatusBar) {
       // Update View Snapshots button
       const dialogs = await import("./ui/dialogs/index.js");
       dialogs.updateViewSnapshotsButton();
+
+      // Update undo button state (may be enabled due to snapshots)
+      updateUndoRedoButtons();
 
       if (updateStatusBar) updateStatusBar();
 
@@ -332,46 +342,67 @@ export async function handleSave(handleSaveAs, updateStatusBar) {
 /**
  * Handle save as - shows native save dialog
  * @param {Function} updateStatusBar - Callback to update status bar
+ * @param {string} [suggestedFilename] - Optional filename to use as default in save dialog
+ * @returns {Promise<boolean>} True if saved successfully, false if cancelled or error
  */
-export async function handleSaveAs(updateStatusBar) {
+export async function handleSaveAs(updateStatusBar, suggestedFilename) {
   if (!modules.layerManager.hasLayers()) {
     await showAlertModal("Nothing to Save", "Open or create an image first before saving.", "info");
-    return;
+    return false;
   }
 
   if (bridge.isTauri()) {
-    await saveAsNative(updateStatusBar);
+    return await saveAsNative(updateStatusBar, suggestedFilename);
   } else {
     // Fallback: download via browser
     const imageData = modules.canvasManager.toDataURL();
     const { downloadImage } = await import("./utils/export.js");
-    downloadImage(imageData, state.filename || "screenshot.png");
+    downloadImage(imageData, suggestedFilename || state.filename || "screenshot.png");
+    return true;
   }
 }
 
 /**
  * Save file using native Tauri dialog
  * @param {Function} updateStatusBar - Callback to update status bar
+ * @param {string} [suggestedFilename] - Optional filename to use as default in save dialog
+ * @returns {Promise<boolean>} True if saved successfully, false if cancelled or error
  */
-async function saveAsNative(updateStatusBar) {
-  // Determine default filename
-  let defaultName = state.filename || "screenshot.png";
-  // Ensure .png extension for images
-  if (!defaultName.toLowerCase().endsWith(".png") && !defaultName.toLowerCase().endsWith(".ssce")) {
+async function saveAsNative(updateStatusBar, suggestedFilename) {
+  // Determine default filename - use suggested name, fall back to state, then default
+  let defaultName = suggestedFilename || state.filename || "screenshot.png";
+  const lowerName = defaultName.toLowerCase();
+
+  // Only add .png extension if file doesn't have a supported image extension
+  const supportedExtensions = [".png", ".jpg", ".jpeg", ".ssce"];
+  const hasValidExtension = supportedExtensions.some((ext) => lowerName.endsWith(ext));
+
+  if (!hasValidExtension) {
+    // Remove any existing extension and add .png
     defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".png";
   }
+
+  // Order filters so the matching format is first (selected by default)
+  const isJpeg = lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg");
+  const filters = isJpeg
+    ? [
+        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+        { name: "PNG Image", extensions: ["png"] },
+        { name: "All Files", extensions: ["*"] },
+      ]
+    : [
+        { name: "PNG Image", extensions: ["png"] },
+        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+        { name: "All Files", extensions: ["*"] },
+      ];
 
   const filePath = await bridge.showSaveDialog({
     title: "Save Image As",
     defaultName,
-    filters: [
-      { name: "PNG Image", extensions: ["png"] },
-      { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
-      { name: "All Files", extensions: ["*"] },
-    ],
+    filters,
   });
 
-  if (!filePath) return; // User cancelled
+  if (!filePath) return false; // User cancelled
 
   showSpinner();
   try {
@@ -393,9 +424,11 @@ async function saveAsNative(updateStatusBar) {
 
     showToast(`Saved: ${state.filename}`, "success");
     if (updateStatusBar) updateStatusBar();
+    return true;
   } catch (err) {
     console.error("Save as error:", err);
     await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
+    return false;
   } finally {
     hideSpinner();
   }
@@ -405,6 +438,7 @@ async function saveAsNative(updateStatusBar) {
  * Save as SSCE file using native dialog
  * @param {Object} options - Save options
  * @param {Object} options.frontMatter - Front matter metadata
+ * @param {string} [options.suggestedFilename] - Optional filename to use as default in save dialog
  * @param {Function} updateStatusBar - Callback to update status bar
  * @returns {Promise<{success: boolean, error?: string}>}
  */
@@ -419,8 +453,8 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
   }
 
   try {
-    // Determine default filename
-    let defaultName = state.filename || "screenshot.ssce";
+    // Determine default filename - use suggested name, fall back to state, then default
+    let defaultName = options.suggestedFilename || state.filename || "screenshot.ssce";
     if (!defaultName.toLowerCase().endsWith(".ssce")) {
       defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".ssce";
     }
@@ -517,21 +551,159 @@ export function setDirectoryConfig(config) {
 // Undo/Redo
 // ============================================================================
 
-export function handleUndo() {
-  modules.layerManager.undo();
-  modules.canvasManager.render();
-  updateUndoRedoButtons();
-  state.hasUnsavedChanges = true;
+export async function handleUndo() {
+  // If undo stack has items, do normal undo
+  if (modules.layerManager.canUndo()) {
+    modules.layerManager.undo();
+    modules.canvasManager.render();
+    updateUndoRedoButtons();
+    state.hasUnsavedChanges = true;
+    // Reset snapshot index when doing normal undo (we're back in edit mode)
+    state.currentSnapshotIndex = -1;
+    return;
+  }
+
+  // If no undo but snapshots exist, step backwards through snapshots
+  if (state.snapshots && state.snapshots.length > 0) {
+    // Determine which snapshot to restore
+    let targetIndex;
+    if (state.currentSnapshotIndex === -1) {
+      // First time hitting undo after edits - save current state so we can redo back
+      state.savedLoadedState = {
+        layers: [...modules.layerManager.layers],
+        canvasSize: modules.canvasManager.getSize(),
+      };
+      targetIndex = state.snapshots.length - 1;
+    } else if (state.currentSnapshotIndex > 0) {
+      // Already at a snapshot - go to previous one
+      targetIndex = state.currentSnapshotIndex - 1;
+    } else {
+      // Already at first snapshot - can't go further back
+      return;
+    }
+
+    await restoreSnapshot(state.snapshots[targetIndex], targetIndex);
+  }
 }
 
-export function handleRedo() {
-  modules.layerManager.redo();
+export async function handleRedo() {
+  // If redo stack has items, do normal redo
+  if (modules.layerManager.canRedo()) {
+    modules.layerManager.redo();
+    modules.canvasManager.render();
+    updateUndoRedoButtons();
+    state.hasUnsavedChanges = true;
+    // Reset snapshot index when doing normal redo
+    state.currentSnapshotIndex = -1;
+    return;
+  }
+
+  // If at a snapshot, step forward through snapshots or back to saved loaded state
+  if (state.currentSnapshotIndex >= 0 && state.snapshots && state.snapshots.length > 0) {
+    if (state.currentSnapshotIndex < state.snapshots.length - 1) {
+      // Go to next snapshot
+      const targetIndex = state.currentSnapshotIndex + 1;
+      await restoreSnapshot(state.snapshots[targetIndex], targetIndex);
+    } else if (state.savedLoadedState) {
+      // At last snapshot and we have a saved loaded state - restore it
+      await restoreLoadedState();
+    }
+  }
+}
+
+/**
+ * Restore canvas to the saved loaded state (for redo past last snapshot)
+ */
+async function restoreLoadedState() {
+  if (!state.savedLoadedState) return;
+
+  const { layers, canvasSize } = state.savedLoadedState;
+
+  // Clear and restore
+  modules.layerManager.layers = [];
+  modules.layerManager.undoStack = [];
+  modules.layerManager.redoStack = [];
+  modules.canvasManager.setSize(canvasSize.width, canvasSize.height);
+  modules.layerManager.layers = [...layers];
   modules.canvasManager.render();
-  updateUndoRedoButtons();
+
+  // Reset snapshot navigation state
+  state.currentSnapshotIndex = -1;
+  state.savedLoadedState = null;
   state.hasUnsavedChanges = true;
+  updateUndoRedoButtons();
+
+  // Recalculate zoom
+  import("./utils/zoom.js").then((zoom) => {
+    zoom.recalculateZoom(true);
+  });
+
+  showToast("Restored to loaded state", "success");
+}
+
+/**
+ * Restore canvas to a snapshot state
+ * @param {Object} snapshot - Snapshot object with image data
+ * @param {number} snapshotIndex - Index of this snapshot in state.snapshots
+ */
+async function restoreSnapshot(snapshot, snapshotIndex) {
+  if (!snapshot || !snapshot.image) {
+    console.error("Invalid snapshot for restore");
+    return;
+  }
+
+  // Load the snapshot image
+  const img = new Image();
+  img.onload = () => {
+    // Clear current layers (this clears undo/redo stacks too)
+    modules.layerManager.clear();
+
+    // Set canvas size to match snapshot
+    modules.canvasManager.setSize(img.width, img.height);
+
+    // Add snapshot as base image layer (using addLayerDirect to avoid undo state)
+    modules.layerManager.addLayerDirect(img, 0, 0);
+
+    // Render
+    modules.canvasManager.render();
+
+    // Update snapshot index
+    state.currentSnapshotIndex = snapshotIndex;
+
+    // Update state
+    state.hasUnsavedChanges = true;
+    updateUndoRedoButtons();
+
+    // Recalculate zoom
+    import("./utils/zoom.js").then((zoom) => {
+      zoom.recalculateZoom(true);
+    });
+
+    showToast(`Restored to: ${snapshot.frontMatter?.title || "Snapshot"}`, "success");
+  };
+
+  img.onerror = () => {
+    showAlertModal("Restore Failed", "Could not load the snapshot image.", "error");
+  };
+
+  img.src = snapshot.image;
 }
 
 export function updateUndoRedoButtons() {
-  document.getElementById("btn-undo").disabled = !modules.layerManager.canUndo();
-  document.getElementById("btn-redo").disabled = !modules.layerManager.canRedo();
+  // Undo is available if:
+  // - undo stack has items, OR
+  // - snapshots exist and we're not already at the first snapshot
+  const hasUndoStack = modules.layerManager.canUndo();
+  const canUndoToSnapshot = state.snapshots && state.snapshots.length > 0 && (state.currentSnapshotIndex === -1 || state.currentSnapshotIndex > 0);
+
+  // Redo is available if:
+  // - redo stack has items, OR
+  // - we're at a snapshot and there are more snapshots ahead, OR
+  // - we're at the last snapshot and there's a saved loaded state to return to
+  const hasRedoStack = modules.layerManager.canRedo();
+  const canRedoToSnapshot = state.currentSnapshotIndex >= 0 && state.snapshots && state.currentSnapshotIndex < state.snapshots.length - 1;
+  const canRedoToLoadedState = state.currentSnapshotIndex === state.snapshots?.length - 1 && state.savedLoadedState !== null;
+
+  document.getElementById("btn-undo").disabled = !(hasUndoStack || canUndoToSnapshot);
+  document.getElementById("btn-redo").disabled = !(hasRedoStack || canRedoToSnapshot || canRedoToLoadedState);
 }

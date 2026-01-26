@@ -14,11 +14,12 @@ A simple, powerful screen capture editor for annotating screenshots and images. 
 3. [The Interface](#the-interface)
 4. [Annotation Tools](#annotation-tools)
 5. [Working with Layers](#working-with-layers)
-6. [Saving Your Work](#saving-your-work)
-7. [Keyboard Shortcuts](#keyboard-shortcuts)
-8. [Tips & Tricks](#tips--tricks)
-9. [Troubleshooting](#troubleshooting)
-10. [Appendix: Technical Details](#appendix-technical-details)
+6. [Auto-Save and Recovery](#auto-save-and-recovery)
+7. [Saving Your Work](#saving-your-work)
+8. [Keyboard Shortcuts](#keyboard-shortcuts)
+9. [Tips & Tricks](#tips--tricks)
+10. [Troubleshooting](#troubleshooting)
+11. [Appendix: Technical Details](#appendix-technical-details)
 
 ---
 
@@ -268,6 +269,62 @@ If an annotation is hidden behind another:
 **Flatten All** (File menu): Merges everything into a single image. Use before final export.
 
 **Flatten Selected** (right-click menu): Merges only selected items. Useful for grouping related annotations together.
+
+---
+
+## Auto-Save and Recovery
+
+SSCE Desktop automatically saves your work in the background to protect against crashes and unexpected closures.
+
+### How Auto-Save Works
+
+- After 30 seconds of inactivity, SSCE automatically saves your current session
+- Auto-save files are stored in a temporary location (`~/.ssce-temp/` on Linux, `%APPDATA%\.ssce-temp\` on Windows)
+- The auto-save is updated each time you stop working for 30 seconds
+- Auto-save files are deleted when you save normally or close the app cleanly
+
+### Crash Recovery
+
+If SSCE closes unexpectedly (crash, power loss, etc.):
+
+1. On next launch, SSCE will detect the recovery file
+2. A dialog will appear offering to recover your work
+3. Choose **Recover** to restore your session, or **Discard** to start fresh
+
+**Note:** After recovery, you can undo back to the recovered state, but the full edit history from before the crash is not preserved.
+
+### Snapshots for Extra Protection
+
+For important work, use **Snapshots** to create recovery points you control:
+
+- Snapshots are saved inside your .ssce project file
+- You can view and restore any snapshot later
+- Snapshots persist even after closing and reopening the file
+
+**Snapshot Reminder:** After approximately 20 edits, SSCE will prompt you to take a snapshot. You can:
+- **Take Snapshot** - Create a recovery point now
+- **Remind Later** - Ask again after more edits
+- **Don't Remind** - Disable reminders for this session
+
+**What counts as an edit:**
+- Adding any annotation (arrow, text, shape, etc.)
+- Moving or resizing an existing annotation
+- Deleting an annotation
+- Combining images
+
+**Tip:** You can adjust or disable the snapshot reminder by changing `snapshotReminderEdits` in the settings (set to 0 to disable).
+
+### Creating a Snapshot Manually
+
+1. Click **File > Add Snapshot** (or use the snapshot button)
+2. Enter a title and optional description
+3. Click **Save**
+
+### Viewing and Restoring Snapshots
+
+1. Click **File > View Snapshots**
+2. Browse through your saved snapshots
+3. Click **Restore** to return to that point
 
 ---
 

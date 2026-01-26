@@ -64,7 +64,7 @@ export async function loadConfig() {
 }
 
 /**
- * Get environment configuration (paths from .env)
+ * Get environment configuration (build info)
  * @returns {Object|null} Environment config or null if not loaded
  */
 export function getEnvConfig() {
@@ -72,11 +72,11 @@ export function getEnvConfig() {
 }
 
 /**
- * Get the default image load path from .env
+ * Get the default image load path from config
  * @returns {string|null} Path or null if not set
  */
 export function getDefaultImageLoadPath() {
-  return envConfig?.default_path_image_load ?? null;
+  return defaults?.paths?.defaultImageLoad || null;
 }
 
 /**
@@ -95,11 +95,26 @@ export function updateWindowTitleWithBuildTime() {
 }
 
 /**
- * Get the default image save path from .env
+ * Get the default image save path from config
  * @returns {string|null} Path or null if not set
  */
 export function getDefaultImageSavePath() {
-  return envConfig?.default_path_image_save ?? null;
+  return defaults?.paths?.defaultImageSave || null;
+}
+
+/**
+ * Get autosave configuration
+ * @returns {Object} Autosave config with enabled, inactivitySeconds, tempDirectory, snapshotReminderEdits
+ */
+export function getAutosaveConfig() {
+  return (
+    defaults?.autosave ?? {
+      enabled: true,
+      inactivitySeconds: 30,
+      tempDirectory: ".ssce-temp",
+      snapshotReminderEdits: 20,
+    }
+  );
 }
 
 /**

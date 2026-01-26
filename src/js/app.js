@@ -34,7 +34,7 @@ import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handl
 import * as tauriBridge from "./tauri-bridge.js";
 import { initDialogs, showSaveOptionsDialog, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
-import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime } from "./utils/config.js";
+import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime, getAutosaveConfig } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
 import { initSsceSession, addSnapshot, getSnapshots, setFrontMatter } from "./ssce-file-ops.js";
 import { serialize, deserialize, createSnapshot } from "./utils/ssce-format.js";
@@ -176,7 +176,7 @@ async function init() {
     handleFileSelect,
     handleExportPng: () => handleExportPng(updateStatusBar),
     handleEditFileInfo,
-    handleSnapshot: () => handleSnapshot(updateStatusBar),
+    handleSnapshot: () => handleSnapshot(false),
     handleViewSnapshots: () => showViewSnapshotsDialog(),
     handleExportSnapshotViewer: () => handleExportSnapshotViewer(),
   });
@@ -192,6 +192,7 @@ async function init() {
     handlePasteFromClipboard: () => handlePasteFromClipboard((file) => loadImageFile(file, updateStatusBar), showPastePositionDialog),
     setActiveTool,
     loadImageFile: (file) => loadImageFile(file, updateStatusBar),
+    handleSnapshot: () => handleSnapshot(false),
   });
   initDragAndDrop((file) => loadImageFile(file, updateStatusBar), setActiveTool);
   initZoomResizeListener();
@@ -206,12 +207,16 @@ async function init() {
   // Check for recovery files from previous crash
   await checkRecoveryFiles();
 
-  // Initialize auto-save system
+  // Initialize auto-save system from config
+  const autosaveConfig = getAutosaveConfig();
   initAutoSave({
-    enabled: true,
-    inactivitySeconds: 30,
-    tempDirectory: ".ssce-temp",
+    enabled: autosaveConfig.enabled,
+    inactivitySeconds: autosaveConfig.inactivitySeconds,
+    tempDirectory: autosaveConfig.tempDirectory,
   });
+
+  // Set snapshot reminder threshold from config (0 to disable)
+  snapshotReminderThreshold = autosaveConfig.snapshotReminderEdits ?? 20;
 
   // Update UI state
   updateUndoRedoButtons();
@@ -329,6 +334,9 @@ async function checkRecoveryFiles() {
         const maxId = Math.max(...sessionData.layers.map((l) => l.id), 0);
         modules.layerManager.nextId = maxId + 1;
 
+        // Save initial undo state so user can undo back to recovered state
+        modules.layerManager.saveUndoState();
+
         // Restore front matter and snapshots
         state.frontMatter = sessionData.frontMatter;
         state.snapshots = sessionData.snapshots;
@@ -348,8 +356,9 @@ async function checkRecoveryFiles() {
           zoom.recalculateZoom(true);
         });
 
-        // Update status bar with cleaned filename
+        // Update status bar and undo/redo buttons
         updateStatusBar();
+        updateUndoRedoButtons();
 
         showToast("Session recovered", "success");
       }
@@ -369,10 +378,57 @@ async function checkRecoveryFiles() {
   }
 }
 
+// Edit counter for snapshot reminder
+let editsSinceLastSnapshot = 0;
+let snapshotReminderThreshold = 20; // Default, updated from config
+let snapshotReminderShowing = false;
+
 // Make this available to other modules
 export function notifyLayerChange() {
   updateUndoRedoButtons();
   state.hasUnsavedChanges = true;
+
+  // Track edits and prompt for snapshot periodically
+  editsSinceLastSnapshot++;
+
+  if (snapshotReminderThreshold > 0 && editsSinceLastSnapshot >= snapshotReminderThreshold && !snapshotReminderShowing) {
+    promptSnapshotReminder();
+  }
+}
+
+/**
+ * Reset edit counter (call after snapshot is taken)
+ */
+export function resetEditCounter() {
+  editsSinceLastSnapshot = 0;
+}
+
+/**
+ * Prompt user to take a snapshot for recovery purposes
+ */
+async function promptSnapshotReminder() {
+  snapshotReminderShowing = true;
+
+  const { showChoiceModal } = await import("./ui/dialogs/index.js");
+
+  const choice = await showChoiceModal("Take a Snapshot?", `You've made ${editsSinceLastSnapshot} edits since your last snapshot.\n\nSnapshots provide recovery points you can return to if needed.`, [
+    { label: "Take Snapshot", value: "snapshot", primary: true },
+    { label: "Remind Later", value: "later" },
+    { label: "Don't Remind", value: "dismiss" },
+  ]);
+
+  snapshotReminderShowing = false;
+
+  if (choice === "snapshot") {
+    // Trigger the snapshot flow (isAutoPrompted = true)
+    await handleSnapshot(true);
+  } else if (choice === "later") {
+    // Reset counter to half threshold - will remind again after half more edits
+    editsSinceLastSnapshot = Math.floor(snapshotReminderThreshold / 2);
+  } else if (choice === "dismiss") {
+    // User doesn't want reminders this session - set very high
+    editsSinceLastSnapshot = -1000;
+  }
 }
 
 // ============================================================================
@@ -481,11 +537,14 @@ async function handleUnifiedSave(updateStatusBar, forceNewFile = false) {
     defaultFormat = "jpg";
   }
 
+  // Auto-tick keepSsce if snapshots exist (user can untick if they want to discard)
+  const hasSnapshots = getSnapshots().length > 0;
+
   // Show unified save dialog
   const options = await showSaveOptionsDialog({
     filename: currentFilename,
     format: defaultFormat,
-    keepSsce: false,
+    keepSsce: hasSnapshots,
   });
 
   if (!options) {
@@ -498,13 +557,30 @@ async function handleUnifiedSave(updateStatusBar, forceNewFile = false) {
 
   // Use native save dialog in Tauri
   if (tauriBridge.isTauri()) {
-    await handleSaveAs(updateStatusBar);
+    const saved = await handleSaveAs(updateStatusBar, filename);
+
+    // If user cancelled the image save, don't proceed with .ssce save
+    if (!saved) {
+      return;
+    }
 
     // If keepSsce is checked, also save .ssce file
     if (options.keepSsce && state.currentFilePath) {
+      // Default title from filename if not already set
+      let defaultTitle = "";
+      if (state.frontMatter?.title) {
+        defaultTitle = state.frontMatter.title;
+      } else if (state.filename) {
+        defaultTitle = state.filename.replace(/\.[^/.]+$/, "");
+      }
+
       const frontMatter = await showFrontMatterDialog({
         title: "File Information",
-        frontMatter: state.frontMatter || {},
+        subtitle: "Also saving .ssce to preserve your snapshots.",
+        frontMatter: {
+          ...state.frontMatter,
+          title: defaultTitle,
+        },
         mode: "save",
       });
 
@@ -573,10 +649,22 @@ async function handleSaveSsce(updateStatusBar) {
  * Save as new .ssce file (prompts for filename via front matter dialog)
  */
 async function handleSaveAsSsce(updateStatusBar) {
+  // Determine default title: existing frontMatter > filename without extension > blank
+  let defaultTitle = "";
+  if (state.frontMatter?.title) {
+    defaultTitle = state.frontMatter.title;
+  } else if (state.filename) {
+    // Strip extension from filename
+    defaultTitle = state.filename.replace(/\.[^/.]+$/, "");
+  }
+
   // Show front matter dialog
   const frontMatter = await showFrontMatterDialog({
     title: "Save as .ssce",
-    frontMatter: state.frontMatter || {},
+    frontMatter: {
+      ...state.frontMatter,
+      title: defaultTitle,
+    },
     mode: "save",
   });
 
@@ -584,8 +672,11 @@ async function handleSaveAsSsce(updateStatusBar) {
     return; // User cancelled
   }
 
+  // Use frontMatter title as suggested filename if available, otherwise use current filename
+  const suggestedFilename = frontMatter.title || state.filename;
+
   // Use the saveAsSsce function from file-operations
-  const result = await saveAsSsce({ frontMatter }, updateStatusBar);
+  const result = await saveAsSsce({ frontMatter, suggestedFilename }, updateStatusBar);
 
   if (result.success) {
     setFrontMatter(frontMatter);
@@ -643,8 +734,9 @@ async function handleEditFileInfo() {
 /**
  * Capture a snapshot of the current canvas state
  * Flattens all layers to an image without modifying the layer stack
+ * @param {boolean} isAutoPrompted - True if triggered by edit count reminder
  */
-async function handleSnapshot(updateStatusBar) {
+async function handleSnapshot(isAutoPrompted = false) {
   if (!modules.layerManager.hasLayers()) {
     const { showAlertModal } = await import("./ui/dialogs/index.js");
     await showAlertModal("Nothing to Snapshot", "Open or create an image first before taking a snapshot.", "info");
@@ -655,11 +747,14 @@ async function handleSnapshot(updateStatusBar) {
   const currentSnapshots = getSnapshots();
   const nextId = currentSnapshots.length + 1;
 
+  // Default title depends on how snapshot was triggered
+  const defaultTitle = isAutoPrompted ? `Auto snapshot step ${nextId}` : `Step ${nextId}`;
+
   // Show front matter dialog for snapshot metadata
   const frontMatter = await showFrontMatterDialog({
     title: "Snapshot Details",
     frontMatter: {
-      title: `Step ${nextId}`,
+      title: defaultTitle,
       summary: "",
     },
     mode: "save",
@@ -668,6 +763,9 @@ async function handleSnapshot(updateStatusBar) {
   if (!frontMatter) {
     return; // User cancelled
   }
+
+  // Reset edit counter (snapshot taken, either manually or via prompt)
+  editsSinceLastSnapshot = 0;
 
   // Show spinner while creating snapshot (can be slow for large images)
   const { showSpinner, hideSpinner } = await import("./utils/spinner.js");

@@ -34,6 +34,8 @@ export const state = {
   frontMatter: null, // Current file metadata (title, summary, initials, dates)
   snapshots: [], // Array of snapshot objects for current session
   sourceFormat: "image", // Source format: "image" (PNG/JPG) or "ssce"
+  currentSnapshotIndex: -1, // Index of currently restored snapshot (-1 = not at a snapshot)
+  savedLoadedState: null, // Saved state of canvas when first undoing to snapshots (for redo back)
 };
 
 // ============================================================================

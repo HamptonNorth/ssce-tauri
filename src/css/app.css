@@ -199,16 +199,39 @@ body {
     cursor: default;
 }
 
-#main-canvas.cursor-crosshair {
+/* Drawing tools - crosshair cursor */
+#main-canvas.cursor-crosshair,
+#main-canvas.cursor-arrow,
+#main-canvas.cursor-line,
+#main-canvas.cursor-shape,
+#main-canvas.cursor-highlight {
     cursor: crosshair;
 }
 
+/* Text tool - text cursor for typing */
 #main-canvas.cursor-text {
     cursor: text;
 }
 
-#main-canvas.cursor-move {
-    cursor: move;
+/* Placement tools - crosshair for precision */
+#main-canvas.cursor-steps,
+#main-canvas.cursor-symbols {
+    cursor: crosshair;
+}
+
+/* Selection/move tools */
+#main-canvas.cursor-move,
+#main-canvas.cursor-select {
+    cursor: default;
+}
+
+/* Special tools - crosshair for precision */
+#main-canvas.cursor-crop,
+#main-canvas.cursor-cut,
+#main-canvas.cursor-fade-edges,
+#main-canvas.cursor-borders,
+#main-canvas.cursor-combine {
+    cursor: crosshair;
 }
 
 /* ============================================================================

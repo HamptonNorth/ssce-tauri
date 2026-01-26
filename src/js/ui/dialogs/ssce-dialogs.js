@@ -76,17 +76,24 @@ export function initSsceDialogs() {
  *   mode: "save"
  * });
  */
-export function showFrontMatterDialog({ title = "File Information", frontMatter = {}, mode = "edit" } = {}) {
+export function showFrontMatterDialog({ title = "File Information", subtitle = "", frontMatter = {}, mode = "edit" } = {}) {
   return new Promise((resolve) => {
     const dialog = document.getElementById("dialog-front-matter");
     const dialogTitle = document.getElementById("front-matter-title");
+    const dialogSubtitle = document.getElementById("front-matter-subtitle");
     const titleInput = document.getElementById("front-matter-file-title");
     const summaryInput = document.getElementById("front-matter-summary");
     const initialsInput = document.getElementById("front-matter-initials");
     const dateInput = document.getElementById("front-matter-date");
 
-    // Set dialog title
+    // Set dialog title and subtitle
     dialogTitle.textContent = title;
+    if (subtitle) {
+      dialogSubtitle.textContent = subtitle;
+      dialogSubtitle.classList.remove("hidden");
+    } else {
+      dialogSubtitle.classList.add("hidden");
+    }
 
     // Get current front matter or defaults
     const current = frontMatter || getFrontMatter() || {};
