@@ -339,17 +339,38 @@ Visual feedback during file open/save:
 
 ---
 
-### Phase 6: Release v1.2.0
+### Phase 6: Code Review & Refactor
+**Goal**: Review codebase health before release
+
+#### 6.1 Review JavaScript architecture
+- Assess module organization and dependencies
+- Identify code duplication or overly complex functions
+- Check for consistent error handling patterns
+- Review state management (state.js) for bloat or tight coupling
+
+#### 6.2 Review Rust backend
+- Check command organization in main.rs
+- Assess error handling consistency
+- Identify any security concerns
+
+#### 6.3 Refactor if needed
+- Only refactor if significant issues found
+- Keep changes minimal and focused
+- Ensure all tests pass after changes
+
+---
+
+### Phase 7: Release v1.2.0
 **Goal**: Version bump and release
 
-#### 6.1 Bump version to 1.2.0
+#### 7.1 Bump version to 1.2.0
 - `src-tauri/Cargo.toml`
 - `src-tauri/tauri.conf.json`
 - `CLAUDE.md` (this file)
 - `package.json` (if exists)
 - User documentation version references
 
-#### 6.2 GitHub Actions release
+#### 7.2 GitHub Actions release
 - Trigger release workflow
 - Test Linux .deb/.AppImage
 - Test Windows .msi/.exe
