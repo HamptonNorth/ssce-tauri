@@ -315,10 +315,77 @@ Created flipped versions (`*-lh.png`, `*-lh.svg`) by applying 180° x-axis flip 
 
 ---
 
+## 10. v1.2.0 Phases 1-3: Bug Fixes, Snapshots, and Configuration
+
+### Session Date: January 2026
+
+### Implementation Summary:
+
+**Phase 1: Core Bug Fixes**
+
+Save/Save As improvements:
+- Added `suggestedFilename` parameter to pass filename to native dialog
+- Reordered JPEG/PNG filters based on file extension
+- Fixed cancel flow when saving with keepSsce option (returns boolean)
+- Fixed JPEG transparency by compositing onto white background before export
+- Added `saveUndoState()` after crash recovery to enable undo
+
+**Phase 2: Snapshot & Undo Enhancements**
+
+Snapshot reminder system:
+- Added `snapshotReminderEdits` config (default 10, 0 to disable)
+- Prompts user to take snapshot after N edits
+- Counter resets on manual snapshot or when reminder dismissed
+
+Undo-to-snapshot navigation:
+- When undo stack empty, Undo steps backwards through snapshots
+- Redo steps forward through snapshots
+- Saves loaded state before first snapshot restore for redo back
+- Added `currentSnapshotIndex` and `savedLoadedState` to state
+- Updated `updateUndoRedoButtons()` to consider snapshot availability
+
+Additional snapshot improvements:
+- Alt+S keyboard shortcut for Take Snapshot
+- Auto-tick keepSsce checkbox when snapshots exist
+- File Information dialog defaults title from filename
+- Subtitle explains .ssce save when triggered by keepSsce
+- "Auto snapshot step N" title for auto-prompted snapshots
+
+**Phase 3: Settings & Persistence**
+
+Moved file paths from .env to defaults.json:
+- Added `paths.defaultImageLoad` and `paths.defaultImageSave` to defaults.json
+- Rust `expand_paths_in_config()` expands `~` to home directory
+- Removed `dotenvy` dependency from Cargo.toml
+- Updated .env to only contain `SHOW_BUILD_TIMESTAMP`
+- Users can now configure paths via Settings UI (gear icon)
+
+**Files Created:**
+- None
+
+**Files Modified:**
+- `src/config/defaults.json` - Added paths section
+- `src-tauri/src/main.rs` - Path expansion, simplified get_env_config
+- `src-tauri/Cargo.toml` - Removed dotenvy dependency
+- `src/js/file-operations.js` - Undo-to-snapshot, suggestedFilename, cancel flow
+- `src/js/state.js` - Added currentSnapshotIndex, savedLoadedState
+- `src/js/app.js` - Snapshot reminder, handleSnapshot improvements
+- `src/js/keyboard.js` - Alt+S shortcut
+- `src/js/utils/config.js` - Read paths from defaults
+- `src/js/utils/colours.js` - Read paths from defaults
+- `src/js/canvas.js` - JPEG white background compositing
+- `src/js/ui/dialogs/ssce-dialogs.js` - Subtitle support
+- `src/index.html` - Alt+S hint, subtitle element
+- `.env` - Removed path settings
+- `.env.sample` - Removed path settings
+- `CLAUDE.md` - Updated config architecture, marked phases complete
+
+---
+
 ## Project Statistics
 
 **Rust Backend:**
-- `main.rs`: ~560 lines
+- `main.rs`: ~530 lines
 - 14 Tauri commands implemented
 - System tray with context menu
 
@@ -329,8 +396,8 @@ Created flipped versions (`*-lh.png`, `*-lh.svg`) by applying 180° x-axis flip 
 - `colours.js`: Colour utilities (no HTTP dependencies)
 
 **Configuration:**
-- `.env`: 2 environment variables (paths)
-- `defaults.json`: ~80 lines of UI configuration (JSON format)
+- `.env`: 1 environment variable (SHOW_BUILD_TIMESTAMP for development)
+- `defaults.json`: ~100 lines of UI configuration including file paths (JSON format)
 
 **Documentation:**
 - `CLAUDE.md`: Project overview and guidance

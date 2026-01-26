@@ -252,56 +252,62 @@ Visual feedback during file open/save:
 
 ## Implementation Plan - v1.2.0 Release
 
-### Phase 1: Core Bug Fixes (High Impact)
+### Phase 1: Core Bug Fixes (High Impact) - COMPLETE
 **Goal**: Fix issues that break core functionality
 
-#### 1.1 Canvas zoom/position calculation bug
-- **Issue**: When image loaded at <100% zoom, tool clicks register at wrong position (as if 100% zoom)
-- **Impact**: Makes cropping and drawing on zoomed images unusable
-- **Files**: Likely `src/js/canvas.js`, tool files in `src/js/tools/`
-- **Test**: Load large image → zoom to 40% → use text tool → verify click position matches cursor
+#### ~~1.1 Canvas zoom/position calculation bug~~ (DONE - was already working)
 
-#### 1.2 Save/Save As filename not passed to native dialog  
-- **Issue**: Filename from SSCE UI not pre-populating native file dialog
-- **Files**: `src/js/file-operations.js`, `src-tauri/src/main.rs`
-- **Test**: Open image → Save As → verify filename field pre-populated
+#### ~~1.2 Save/Save As filename not passed to native dialog~~ (DONE)
+- Added `suggestedFilename` parameter to `handleSaveAs` and `saveAsNative`
+- Filename from unified save dialog now pre-populates native file dialog
 
-#### 1.3 JPG extension morphed to PNG in native dialog
-- **Issue**: Selecting .jpg save changes to .png in dialog
-- **Files**: `src-tauri/src/main.rs` (save dialog filters)
-- **Test**: Save As → select JPG → verify filename keeps .jpg extension
+#### ~~1.3 JPG extension morphed to PNG in native dialog~~ (DONE)
+- Reordered filters based on file extension so matching format is selected by default
+
+#### Additional fixes in Phase 1:
+- ~~Fix cancel flow when saving with keepSsce option~~ (DONE)
+- ~~Fix JPEG transparency (composite onto white background)~~ (DONE)
+- ~~Add saveUndoState after crash recovery load~~ (DONE)
 
 ---
 
-### Phase 2: Missing Spinners
-**Goal**: Consistent loading feedback across all file operations
+### Phase 2: Snapshot & Undo Enhancements - COMPLETE
+**Goal**: Improve snapshot workflow and undo functionality
 
-#### 2.1 Add spinner to Recover (load .ssce file)
-- **Files**: `src/js/file-operations.js` or recovery dialog handler
-- **Test**: Trigger crash recovery → verify spinner shows during load
+#### ~~2.1 Snapshot reminder after N edits~~ (DONE)
+- Added `snapshotReminderEdits` config (default 10, 0 to disable)
+- Prompts user to take snapshot after configured number of edits
+- Counter resets on manual snapshot
 
-#### 2.2 Add spinner to Save Snapshot
-- **Files**: `src/js/file-operations.js` or snapshot handler
-- **Test**: Save snapshot → verify spinner shows during save
+#### ~~2.2 Auto-tick keepSsce when snapshots exist~~ (DONE)
+- Save dialog auto-ticks "Also save as .ssce" when snapshots exist
+
+#### ~~2.3 Undo-to-snapshot when undo stack empty~~ (DONE)
+- When undo stack exhausted, pressing Undo steps back through snapshots
+- Redo steps forward through snapshots
+- Can redo back to loaded state after undoing to snapshots
+- Tracks `currentSnapshotIndex` and `savedLoadedState` in state
+
+#### ~~2.4 Snapshot keyboard shortcut~~ (DONE)
+- Alt+S takes a snapshot
+- Shortcut displayed in File menu
 
 ---
 
-### Phase 3: Settings & Persistence
+### Phase 3: Settings & Persistence - COMPLETE
 **Goal**: User-friendly configuration
 
-#### 3.1 Move directory settings from .env to config with native picker
-- **Current**: `DEFAULT_PATH_IMAGE_LOAD` and `DEFAULT_PATH_IMAGE_SAVE` in `.env`
-- **Target**: Add to Settings UI with native directory picker buttons
-- **Files**: 
-  - `src-tauri/src/main.rs` - Add `pick_directory` Tauri command
-  - `src/js/utils/config.js` - Add directory settings
-  - Settings UI - Add Browse buttons for Open/Save directories
-- **Test**: Open Settings → click Browse for Open directory → select folder → verify persisted
+#### ~~3.1 Move directory settings from .env to defaults.json~~ (DONE)
+- Added `paths.defaultImageLoad` and `paths.defaultImageSave` to defaults.json
+- Rust backend expands `~` in paths before sending to frontend
+- Removed `dotenvy` dependency (no longer needed)
+- Updated .env to only contain `SHOW_BUILD_TIMESTAMP`
+- Users can now edit paths via Settings UI (gear icon)
 
-#### 3.2 Verify initials persist in .ssce saves and snapshots
-- **Issue**: Check if initials setting is being written to config and persisting
-- **Files**: `src/js/utils/config.js`, save handlers
-- **Test**: Set initials → save .ssce → close app → reopen → verify initials restored
+#### ~~3.2 File Information dialog improvements~~ (DONE)
+- Default title from filename when saving .ssce
+- Subtitle explains .ssce save when triggered by keepSsce checkbox
+- "Auto snapshot step N" title for auto-prompted snapshots
 
 ---
 

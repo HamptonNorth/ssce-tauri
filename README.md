@@ -44,7 +44,9 @@ Each tool displays a slide-down settings panel with tool-specific options:
 - **Save as .ssce** - Projects with layers preserved for later editing
 - **Export as PNG/JPG** - Flatten and export when sharing
 - **Edit File Info** - Add title, summary, initials, and dates
-- **Snapshots** - Capture annotated states with notes for versioning
+- **Snapshots** - Capture annotated states with notes for versioning (Alt+S)
+- **Snapshot reminder** - Prompts to take snapshot after configurable number of edits
+- **Undo to snapshots** - When undo stack empty, Undo/Redo navigate through snapshots
 - **View Snapshots** - Browse, restore, or delete saved snapshots
 - **Export Snapshot Viewer** - Generate shareable HTML with all snapshots
 
@@ -98,21 +100,18 @@ Production builds are output to `src-tauri/target/release/bundle/`.
 
 ## Configuration
 
-### Environment Settings (.env)
+All settings are configured via the Settings UI (gear icon in toolbar) or by editing `defaults.json`.
 
-Copy `.env.sample` to `.env` and edit to set default directories:
+### Application Settings (defaults.json)
 
-```bash
-# Default directories for file dialogs
-DEFAULT_PATH_IMAGE_LOAD=~/Pictures/screenshots
-DEFAULT_PATH_IMAGE_SAVE=~/Pictures/edited
-```
+All settings are in `src/config/defaults.json`, which is bundled with the application:
+- **File paths** - Default directories for Open/Save dialogs (supports `~` for home)
+- **Tool defaults** - Colours, line styles, sizes for each tool
+- **Colour palette** - The 6 swatch colours
+- **Symbols/Steps** - Emoji characters for annotation tools
+- **Auto-save** - Timing, temp directory, snapshot reminder threshold
 
-If not specified, defaults to user's home directory. The app also remembers the last-used directory during each session.
-
-### UI Defaults (defaults.json)
-
-Tool defaults (colours, symbols, line widths) are configured in `src/config/defaults.json`. This file is bundled with the application and loaded via Tauri command.
+User customizations are saved to `~/.config/ssce-desktop/defaults.json` (Linux) or AppData (Windows) and take priority over bundled defaults. Click "Reset to Defaults" in Settings to restore original values.
 
 ## Keyboard Shortcuts
 
@@ -127,6 +126,7 @@ Tool defaults (colours, symbols, line widths) are configured in `src/config/defa
 | Ctrl+P | Print |
 | Ctrl+Z | Undo |
 | Ctrl+Y | Redo |
+| Alt+S | Take Snapshot |
 | **Tool Selection** | |
 | V | Select tool |
 | A | Arrow tool |
