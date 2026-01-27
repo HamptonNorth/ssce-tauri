@@ -446,5 +446,5 @@ convert /tmp/icon-16.png /tmp/icon-32.png src-tauri/icons/tray-icon.ico
 
 ---
 
-*Version: 1.0.4*
+*Version: 1.2.0*
 *Last Updated: January 2026*
