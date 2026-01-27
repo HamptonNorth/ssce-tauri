@@ -36,6 +36,7 @@ import { initDialogs, showResizeDialog, showPrintDialog, showCombineDialog, show
 import { initRecentFilesDialog, showRecentFilesDialog } from "./ui/dialogs/recent-files-dialog.js";
 import { initSearchLibraryDialog, showSearchLibraryDialog } from "./ui/dialogs/search-library-dialog.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
+import { initCanvasBackgroundToggle } from "./utils/canvas-background.js";
 import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime, getAutosaveConfig } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
 import { initSsceSession, addSnapshot, getSnapshots, setFrontMatter } from "./ssce-file-ops.js";
@@ -202,6 +203,7 @@ async function init() {
   });
   initDragAndDrop((file) => loadImageFile(file, updateStatusBar), setActiveTool);
   initZoomResizeListener();
+  initCanvasBackgroundToggle();
   initPropertyCards();
   initDialogs({
     updateStatusBar,

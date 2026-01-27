@@ -139,6 +139,19 @@ body {
     overflow: auto;
     /* Fix height so scrollbars are positioned at viewport edges */
     height: 100%;
+    /* Default dark background */
+    background-color: #1f2937; /* gray-800 */
+    transition: background-color 0.2s ease;
+}
+
+/* Light background for dark images */
+#canvas-container.bg-light {
+    background-color: #d1d5db; /* gray-300 */
+}
+
+/* Dark background for light images (default) */
+#canvas-container.bg-dark {
+    background-color: #1f2937; /* gray-800 */
 }
 
 /* When image overflows horizontally, align left for proper scrolling */
@@ -176,10 +189,32 @@ body {
     background: #1f2937; /* Match track */
 }
 
+/* Light background scrollbar adjustments */
+#canvas-container.bg-light::-webkit-scrollbar-track {
+    background: #d1d5db; /* gray-300 */
+}
+
+#canvas-container.bg-light::-webkit-scrollbar-thumb {
+    background: #6b7280; /* gray-500 */
+    border-color: #d1d5db;
+}
+
+#canvas-container.bg-light::-webkit-scrollbar-thumb:hover {
+    background: #4b5563; /* gray-600 */
+}
+
+#canvas-container.bg-light::-webkit-scrollbar-corner {
+    background: #d1d5db;
+}
+
 /* For Firefox - visible scrollbars with contrast */
 #canvas-container {
     scrollbar-width: thin;
     scrollbar-color: #9ca3af #1f2937;
+}
+
+#canvas-container.bg-light {
+    scrollbar-color: #6b7280 #d1d5db;
 }
 
 /* Center canvas wrapper when it fits in viewport using JavaScript classes */

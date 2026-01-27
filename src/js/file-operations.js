@@ -11,6 +11,7 @@ import { showToast } from "./utils/toast.js";
 import { showSpinner, hideSpinner } from "./utils/spinner.js";
 import * as bridge from "./tauri-bridge.js";
 import { addRecentFile } from "./utils/recent-files.js";
+import { checkContrastAndNotify } from "./utils/canvas-background.js";
 
 // ============================================================================
 // File Operations
@@ -124,6 +125,9 @@ export async function loadFileFromPath(filePath, updateStatusBar) {
       // Render
       modules.canvasManager.render();
 
+      // Check contrast for dark images
+      checkContrastAndNotify(modules.canvasManager.canvas);
+
       // Update zoom
       const zoom = await import("./utils/zoom.js");
       zoom.recalculateZoom(true);
@@ -173,6 +177,9 @@ export async function loadFileFromPath(filePath, updateStatusBar) {
       state.sourceFormat = "image";
 
       modules.canvasManager.render();
+
+      // Check contrast for dark images
+      checkContrastAndNotify(modules.canvasManager.canvas);
 
       // Auto-fit and update zoom
       zoom.recalculateZoom(true);
@@ -227,6 +234,9 @@ export function loadImageFile(file, updateStatusBar) {
 
       if (updateStatusBar) updateStatusBar();
       modules.canvasManager.render();
+
+      // Check contrast for dark images
+      checkContrastAndNotify(modules.canvasManager.canvas);
 
       // Auto-fit large images
       import("./utils/zoom.js").then((zoom) => {
@@ -288,6 +298,9 @@ async function loadSsceFromFile(file, updateStatusBar) {
 
       // Render
       modules.canvasManager.render();
+
+      // Check contrast for dark images
+      checkContrastAndNotify(modules.canvasManager.canvas);
 
       // Update zoom
       const zoom = await import("./utils/zoom.js");
