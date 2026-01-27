@@ -70,6 +70,38 @@
                         </svg>
                         <span>Recent Files...</span>
                     </button>
+                    <!-- More submenu -->
+                    <div id="submenu-more-container" class="relative submenu-container">
+                        <button class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 submenu-trigger">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                            </svg>
+                            <span>More</span>
+                            <svg class="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                        <div id="submenu-more" class="hidden absolute left-full top-0 ml-1 bg-gray-700 rounded-lg shadow-lg py-1 min-w-[220px] submenu-panel">
+                            <button id="menu-save-to-default" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                                <span id="save-to-default-check" class="w-4 text-center hidden">✓</span>
+                                <span id="save-to-default-uncheck" class="w-4 text-center"></span>
+                                <span>Save to Default Directory</span>
+                            </button>
+                            <button id="menu-set-save-dir" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                </svg>
+                                <span>Set Save Directory...</span>
+                            </button>
+                            <div class="border-t border-gray-600 my-1"></div>
+                            <button id="menu-edit-file-info" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Edit File Info...</span>
+                            </button>
+                        </div>
+                    </div>
                     <div class="border-t border-gray-600 my-1"></div>
                     <button id="menu-paste" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,44 +152,40 @@
                         <span>Print...</span>
                         <span class="ml-auto text-xs text-gray-400">Ctrl+P</span>
                     </button>
-                    <div class="border-t border-gray-600 my-1"></div>
-                    <button id="menu-save-to-default" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
-                        <span id="save-to-default-check" class="w-4 text-center hidden">✓</span>
-                        <span id="save-to-default-uncheck" class="w-4 text-center"></span>
-                        <span>Save to Default Directory</span>
-                    </button>
-                    <button id="menu-set-save-dir" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
-                        <span>Set Save Directory...</span>
-                    </button>
-                    <div class="border-t border-gray-600 my-1"></div>
-                    <button id="menu-export-png" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>Export As PNG...</span>
-                        <span class="ml-auto text-xs text-gray-400">Ctrl+E</span>
-                    </button>
-                    <button id="menu-export-jpg" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>Export As JPG...</span>
-                    </button>
-                    <button id="menu-export-snapshot-viewer" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>Export Snapshot Viewer...</span>
-                    </button>
-                    <button id="menu-edit-file-info" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Edit File Info...</span>
-                    </button>
+                    <!-- Export submenu -->
+                    <div id="submenu-export-container" class="relative submenu-container">
+                        <button class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 submenu-trigger">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            <span>Export</span>
+                            <svg class="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                        <div id="submenu-export" class="hidden absolute left-full top-0 ml-1 bg-gray-700 rounded-lg shadow-lg py-1 min-w-[220px] submenu-panel">
+                            <button id="menu-export-png" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Export As PNG...</span>
+                                <span class="ml-auto text-xs text-gray-400">Ctrl+E</span>
+                            </button>
+                            <button id="menu-export-jpg" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Export As JPG...</span>
+                            </button>
+                            <div class="border-t border-gray-600 my-1"></div>
+                            <button id="menu-export-snapshot-viewer" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span>Export Snapshot Viewer...</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

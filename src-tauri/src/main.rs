@@ -11,6 +11,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 /// Represents a file or directory entry for directory listings
 #[derive(Serialize)]
@@ -607,6 +608,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .setup(|app| {
             // Create tray menu
             let show_item = MenuItem::with_id(app, "show", "Show SSCE", true, None::<&str>)?;
@@ -657,6 +659,8 @@ fn main() {
         .on_window_event(|window, event| {
             // Intercept close event and minimize to tray instead
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Save window state before hiding
+                let _ = window.app_handle().save_window_state(StateFlags::all());
                 let _ = window.hide();
                 api.prevent_close();
             }

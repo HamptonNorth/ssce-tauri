@@ -14,6 +14,78 @@ import { showPropertyCard } from "./property-cards/index.js";
 const MORE_TOOLS = ["cut", "crop", "steps", "symbols", "combine", "highlight", "fade-edges", "borders"];
 
 // ============================================================================
+// Submenu Positioning
+// ============================================================================
+
+/**
+ * Initialize submenu hover behavior with smart positioning
+ * Submenus fly upward when they would otherwise be truncated at the bottom
+ */
+function initSubmenus() {
+  const submenuContainers = document.querySelectorAll(".submenu-container");
+
+  submenuContainers.forEach((container) => {
+    const trigger = container.querySelector(".submenu-trigger");
+    const panel = container.querySelector(".submenu-panel");
+
+    if (!trigger || !panel) return;
+
+    let hideTimeout = null;
+
+    const showSubmenu = () => {
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
+
+      // Reset position classes
+      panel.classList.remove("bottom-0", "top-0");
+
+      // Show temporarily to measure
+      panel.classList.remove("hidden");
+
+      // Get positions
+      const triggerRect = trigger.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+
+      // Check if submenu would overlap the footer
+      const footer = document.getElementById("footer");
+      const footerTop = footer ? footer.getBoundingClientRect().top : window.innerHeight;
+      const wouldOverflow = triggerRect.top + panelRect.height > footerTop - 10;
+
+      if (wouldOverflow) {
+        // Align bottom of submenu with bottom of trigger
+        panel.classList.remove("top-0");
+        panel.classList.add("bottom-0");
+      } else {
+        // Align top of submenu with top of trigger (default)
+        panel.classList.remove("bottom-0");
+        panel.classList.add("top-0");
+      }
+    };
+
+    const hideSubmenu = () => {
+      hideTimeout = setTimeout(() => {
+        panel.classList.add("hidden");
+      }, 100);
+    };
+
+    // Show on hover
+    container.addEventListener("mouseenter", showSubmenu);
+    container.addEventListener("mouseleave", hideSubmenu);
+
+    // Keep open when hovering panel
+    panel.addEventListener("mouseenter", () => {
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
+    });
+    panel.addEventListener("mouseleave", hideSubmenu);
+  });
+}
+
+// ============================================================================
 // Toolbar Events
 // ============================================================================
 
@@ -23,6 +95,9 @@ const MORE_TOOLS = ["cut", "crop", "steps", "symbols", "combine", "highlight", "
  */
 export function initToolbarEvents(handlers) {
   const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, toggleSaveToDefault, handleUndo, handleRedo, showResizeDialog, handleFileSelect } = handlers;
+
+  // Initialize submenus with smart positioning
+  initSubmenus();
 
   // File dropdown menu
   const fileMenuBtn = document.getElementById("file-menu-btn");
