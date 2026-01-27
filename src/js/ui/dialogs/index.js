@@ -54,6 +54,14 @@ import { initToolDialogs } from "./tool-dialogs.js";
 export { showSettingsDialog } from "./settings-dialog.js";
 import { initSettingsDialog } from "./settings-dialog.js";
 
+// Recent files dialog
+export { showRecentFilesDialog } from "./recent-files-dialog.js";
+import { initRecentFilesDialog } from "./recent-files-dialog.js";
+
+// Search library dialog
+export { showSearchLibraryDialog } from "./search-library-dialog.js";
+import { initSearchLibraryDialog } from "./search-library-dialog.js";
+
 // ============================================================================
 // Unified Initialization
 // ============================================================================
@@ -79,7 +87,7 @@ import { initSettingsDialog } from "./settings-dialog.js";
  * });
  */
 export function initDialogs(options) {
-  const { updateStatusBar, updateUndoRedoButtons, getSaveDirectory, getAutoIncrementedFilename } = options;
+  const { updateStatusBar, updateUndoRedoButtons, getSaveDirectory, getAutoIncrementedFilename, onFileSelect } = options;
 
   // Initialize each dialog category with relevant callbacks
   initFileDialogs({
@@ -100,6 +108,12 @@ export function initDialogs(options) {
   initToolDialogs();
 
   initSettingsDialog();
+
+  // Initialize recent files and search dialogs with file select handler
+  if (onFileSelect) {
+    initRecentFilesDialog(onFileSelect);
+    initSearchLibraryDialog(onFileSelect);
+  }
 }
 
 // ============================================================================

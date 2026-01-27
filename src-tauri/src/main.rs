@@ -2,16 +2,452 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::Serialize;
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, State,
 };
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+
+// ============================================================================
+// Database State
+// ============================================================================
+
+struct DbState(Mutex<Connection>);
+
+/// Initialize the SQLite database with FTS5 support
+fn init_database() -> Result<Connection, rusqlite::Error> {
+    let db_path = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("ssce-desktop")
+        .join("library.db");
+
+    // Ensure directory exists
+    if let Some(parent) = db_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    let conn = Connection::open(&db_path)?;
+
+    // Create main files table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY,
+            path TEXT UNIQUE NOT NULL,
+            filename TEXT NOT NULL,
+            thumbnail TEXT,
+            title TEXT,
+            summary TEXT,
+            keywords TEXT,
+            modified TEXT,
+            last_opened TEXT,
+            snapshot_count INTEGER DEFAULT 0
+        )",
+        [],
+    )?;
+
+    // Create FTS5 virtual table for full-text search
+    conn.execute(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+            filename,
+            title,
+            summary,
+            keywords,
+            content='files',
+            content_rowid='id'
+        )",
+        [],
+    )?;
+
+    // Create triggers to keep FTS in sync
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
+            INSERT INTO files_fts(rowid, filename, title, summary, keywords)
+            VALUES (new.id, new.filename, new.title, new.summary, new.keywords);
+        END",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
+            INSERT INTO files_fts(files_fts, rowid, filename, title, summary, keywords)
+            VALUES ('delete', old.id, old.filename, old.title, old.summary, old.keywords);
+        END",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
+            INSERT INTO files_fts(files_fts, rowid, filename, title, summary, keywords)
+            VALUES ('delete', old.id, old.filename, old.title, old.summary, old.keywords);
+            INSERT INTO files_fts(rowid, filename, title, summary, keywords)
+            VALUES (new.id, new.filename, new.title, new.summary, new.keywords);
+        END",
+        [],
+    )?;
+
+    Ok(conn)
+}
+
+// ============================================================================
+// Database Types
+// ============================================================================
+
+#[derive(Serialize, Deserialize)]
+struct LibraryFile {
+    id: Option<i64>,
+    path: String,
+    filename: String,
+    thumbnail: Option<String>,
+    title: Option<String>,
+    summary: Option<String>,
+    keywords: Option<String>,
+    modified: Option<String>,
+    last_opened: Option<String>,
+    snapshot_count: i32,
+}
+
+#[derive(Deserialize)]
+struct SearchParams {
+    query: Option<String>,
+    from_date: Option<String>,
+    to_date: Option<String>,
+    limit: Option<i32>,
+}
+
+// ============================================================================
+// Database Commands
+// ============================================================================
+
+/// Add or update a file in the library database
+#[tauri::command]
+fn db_upsert_file(state: State<DbState>, file: LibraryFile) -> Result<i64, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO files (path, filename, thumbnail, title, summary, keywords, modified, last_opened, snapshot_count)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+         ON CONFLICT(path) DO UPDATE SET
+             filename = excluded.filename,
+             thumbnail = excluded.thumbnail,
+             title = excluded.title,
+             summary = excluded.summary,
+             keywords = excluded.keywords,
+             modified = excluded.modified,
+             last_opened = excluded.last_opened,
+             snapshot_count = excluded.snapshot_count",
+        params![
+            file.path,
+            file.filename,
+            file.thumbnail,
+            file.title,
+            file.summary,
+            file.keywords,
+            file.modified,
+            file.last_opened,
+            file.snapshot_count,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let id = conn.last_insert_rowid();
+    Ok(id)
+}
+
+/// Get recent files ordered by last_opened
+#[tauri::command]
+fn db_get_recent_files(state: State<DbState>, limit: i32) -> Result<Vec<LibraryFile>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path, filename, thumbnail, title, summary, keywords, modified, last_opened, snapshot_count
+             FROM files
+             WHERE last_opened IS NOT NULL
+             ORDER BY last_opened DESC
+             LIMIT ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let files = stmt
+        .query_map([limit], |row| {
+            Ok(LibraryFile {
+                id: Some(row.get(0)?),
+                path: row.get(1)?,
+                filename: row.get(2)?,
+                thumbnail: row.get(3)?,
+                title: row.get(4)?,
+                summary: row.get(5)?,
+                keywords: row.get(6)?,
+                modified: row.get(7)?,
+                last_opened: row.get(8)?,
+                snapshot_count: row.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(files)
+}
+
+/// Search files using FTS5 and optional date filters
+#[tauri::command]
+fn db_search_files(state: State<DbState>, params: SearchParams) -> Result<Vec<LibraryFile>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let limit = params.limit.unwrap_or(50);
+
+    // Build query based on whether we have a search term
+    let (sql, use_fts) = if let Some(ref query) = params.query {
+        if query.trim().is_empty() {
+            (String::from(
+                "SELECT id, path, filename, thumbnail, title, summary, keywords, modified, last_opened, snapshot_count
+                 FROM files
+                 WHERE 1=1"
+            ), false)
+        } else {
+            (String::from(
+                "SELECT f.id, f.path, f.filename, f.thumbnail, f.title, f.summary, f.keywords, f.modified, f.last_opened, f.snapshot_count
+                 FROM files f
+                 JOIN files_fts fts ON f.id = fts.rowid
+                 WHERE files_fts MATCH ?1"
+            ), true)
+        }
+    } else {
+        (String::from(
+            "SELECT id, path, filename, thumbnail, title, summary, keywords, modified, last_opened, snapshot_count
+             FROM files
+             WHERE 1=1"
+        ), false)
+    };
+
+    // Add date filters and ordering
+    let mut sql = sql;
+    if params.from_date.is_some() {
+        sql.push_str(" AND modified >= ?2");
+    }
+    if params.to_date.is_some() {
+        sql.push_str(" AND modified <= ?3");
+    }
+    sql.push_str(" ORDER BY modified DESC LIMIT ?4");
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+
+    // Bind parameters based on query type
+    let files = if use_fts {
+        let query = params.query.as_ref().unwrap();
+        // Convert simple search to FTS5 format (prefix matching)
+        let fts_query = query
+            .split_whitespace()
+            .map(|w| format!("{}*", w))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        stmt.query_map(
+            params![
+                fts_query,
+                params.from_date.unwrap_or_default(),
+                params.to_date.unwrap_or_default(),
+                limit
+            ],
+            |row| {
+                Ok(LibraryFile {
+                    id: Some(row.get(0)?),
+                    path: row.get(1)?,
+                    filename: row.get(2)?,
+                    thumbnail: row.get(3)?,
+                    title: row.get(4)?,
+                    summary: row.get(5)?,
+                    keywords: row.get(6)?,
+                    modified: row.get(7)?,
+                    last_opened: row.get(8)?,
+                    snapshot_count: row.get(9)?,
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?
+    } else {
+        stmt.query_map(
+            params![
+                "",  // placeholder for FTS query
+                params.from_date.unwrap_or_default(),
+                params.to_date.unwrap_or_default(),
+                limit
+            ],
+            |row| {
+                Ok(LibraryFile {
+                    id: Some(row.get(0)?),
+                    path: row.get(1)?,
+                    filename: row.get(2)?,
+                    thumbnail: row.get(3)?,
+                    title: row.get(4)?,
+                    summary: row.get(5)?,
+                    keywords: row.get(6)?,
+                    modified: row.get(7)?,
+                    last_opened: row.get(8)?,
+                    snapshot_count: row.get(9)?,
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?
+    };
+
+    Ok(files)
+}
+
+/// Remove a file from the library database
+#[tauri::command]
+fn db_remove_file(state: State<DbState>, path: String) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    conn.execute("DELETE FROM files WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Update last_opened timestamp for a file
+#[tauri::command]
+fn db_update_last_opened(state: State<DbState>, path: String, timestamp: String) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE files SET last_opened = ?1 WHERE path = ?2",
+        params![timestamp, path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Scan library folder and index all .ssce files
+#[tauri::command]
+fn db_rebuild_from_library(state: State<DbState>, library_path: String) -> Result<i32, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let path = Path::new(&library_path);
+    if !path.exists() {
+        return Err(format!("Library path does not exist: {}", library_path));
+    }
+
+    let mut count = 0;
+
+    // Recursively find all .ssce files
+    fn scan_dir(dir: &Path, conn: &Connection, count: &mut i32) -> Result<(), String> {
+        let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+
+            if path.is_dir() {
+                scan_dir(&path, conn, count)?;
+            } else if path.extension().map(|e| e == "ssce").unwrap_or(false) {
+                // Read and parse the .ssce file
+                let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+                let json: serde_json::Value =
+                    serde_json::from_str(&content).map_err(|e| e.to_string())?;
+
+                let filename = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                let thumbnail = json.get("thumbnail").and_then(|v| v.as_str()).map(String::from);
+                let keywords = json.get("keywords").and_then(|v| {
+                    v.as_array().map(|arr| {
+                        arr.iter()
+                            .filter_map(|k| k.as_str())
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    })
+                });
+
+                let front_matter = json.get("frontMatter");
+                let title = front_matter
+                    .and_then(|fm| fm.get("title"))
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                let summary = front_matter
+                    .and_then(|fm| fm.get("summary"))
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                let modified = front_matter
+                    .and_then(|fm| fm.get("modified"))
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+
+                let snapshot_count = json
+                    .get("snapshots")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.len() as i32)
+                    .unwrap_or(0);
+
+                let path_str = path.to_string_lossy().to_string();
+
+                // Use modified date as last_opened during rebuild (so files show in Recent)
+                let last_opened = modified.clone();
+
+                conn.execute(
+                    "INSERT INTO files (path, filename, thumbnail, title, summary, keywords, modified, last_opened, snapshot_count)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                     ON CONFLICT(path) DO UPDATE SET
+                         filename = excluded.filename,
+                         thumbnail = excluded.thumbnail,
+                         title = excluded.title,
+                         summary = excluded.summary,
+                         keywords = excluded.keywords,
+                         modified = excluded.modified,
+                         last_opened = COALESCE(files.last_opened, excluded.last_opened),
+                         snapshot_count = excluded.snapshot_count",
+                    params![path_str, filename, thumbnail, title, summary, keywords, modified, last_opened, snapshot_count],
+                )
+                .map_err(|e| e.to_string())?;
+
+                *count += 1;
+            }
+        }
+
+        Ok(())
+    }
+
+    scan_dir(path, &conn, &mut count)?;
+
+    // Clean up stale entries (files in DB that no longer exist)
+    let mut stmt = conn
+        .prepare("SELECT id, path FROM files")
+        .map_err(|e| e.to_string())?;
+
+    let stale_ids: Vec<i64> = stmt
+        .query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let path: String = row.get(1)?;
+            Ok((id, path))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .filter(|(_, path)| !Path::new(path).exists())
+        .map(|(id, _)| id)
+        .collect();
+
+    for id in &stale_ids {
+        conn.execute("DELETE FROM files WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(count)
+}
 
 /// Represents a file or directory entry for directory listings
 #[derive(Serialize)]
@@ -603,13 +1039,24 @@ fn open_in_default_app(path: String) -> Result<(), String> {
 }
 
 fn main() {
+    // Initialize database
+    let db = init_database().expect("Failed to initialize database");
+
     tauri::Builder::default()
+        .manage(DbState(Mutex::new(db)))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .setup(|app| {
+            // Set window icon
+            if let Some(window) = app.get_webview_window("main") {
+                let window_icon = Image::from_bytes(include_bytes!("../icons/128x128.png"))
+                    .expect("Failed to load window icon");
+                let _ = window.set_icon(window_icon);
+            }
+
             // Create tray menu
             let show_item = MenuItem::with_id(app, "show", "Show SSCE", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -685,6 +1132,12 @@ fn main() {
             save_defaults_config,
             get_user_config_path,
             open_in_default_app,
+            db_upsert_file,
+            db_get_recent_files,
+            db_search_files,
+            db_remove_file,
+            db_update_last_opened,
+            db_rebuild_from_library,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

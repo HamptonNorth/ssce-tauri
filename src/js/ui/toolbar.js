@@ -127,6 +127,10 @@ export function initToolbarEvents(handlers) {
     fileMenu.classList.add("hidden");
     handlers.handleRecentFiles();
   });
+  document.getElementById("menu-search-library").addEventListener("click", () => {
+    fileMenu.classList.add("hidden");
+    handlers.handleSearchLibrary();
+  });
   document.getElementById("menu-paste").addEventListener("click", () => {
     fileMenu.classList.add("hidden");
     handlers.handlePasteFromClipboard();

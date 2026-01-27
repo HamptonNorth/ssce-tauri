@@ -3,7 +3,8 @@
  * Shows a grid of recently opened/saved .ssce files with thumbnails
  */
 
-import { getRecentFiles, clearRecentFiles, removeRecentFile, updateRecentFileThumbnail, updateRecentFileMetadata } from "../../utils/recent-files.js";
+import { getRecentFiles, removeRecentFile, rebuildFromLibrary } from "../../utils/recent-files.js";
+import { getLibraryPath } from "../../utils/config.js";
 import * as bridge from "../../tauri-bridge.js";
 
 let dialog = null;
@@ -27,13 +28,32 @@ export function initRecentFilesDialog(fileSelectHandler) {
     dialog.close();
   });
 
-  // Clear history button
-  document.getElementById("recent-files-clear").addEventListener("click", async () => {
-    const { showConfirmModal } = await import("./index.js");
-    const confirmed = await showConfirmModal("Clear Recent Files", "This will clear your recent files history. This cannot be undone.", { confirmText: "Clear", cancelText: "Cancel", type: "warning" });
-    if (confirmed) {
-      clearRecentFiles();
-      renderGrid();
+  // Rebuild library button (repurposed from "Clear")
+  const rebuildBtn = document.getElementById("recent-files-clear");
+  rebuildBtn.textContent = "Rebuild from Library";
+  rebuildBtn.addEventListener("click", async () => {
+    const libraryPath = getLibraryPath();
+    if (!libraryPath) {
+      const { showAlertModal } = await import("./index.js");
+      await showAlertModal("No Library Path", "Library path is not configured. Please set it in Settings.");
+      return;
+    }
+
+    rebuildBtn.disabled = true;
+    rebuildBtn.textContent = "Rebuilding...";
+
+    try {
+      const count = await rebuildFromLibrary(libraryPath);
+      await renderGrid();
+      const { showAlertModal } = await import("./index.js");
+      await showAlertModal("Library Rebuilt", `Indexed ${count} file${count !== 1 ? "s" : ""} from the library.`);
+    } catch (err) {
+      console.error("Failed to rebuild library:", err);
+      const { showAlertModal } = await import("./index.js");
+      await showAlertModal("Rebuild Failed", `Failed to rebuild library: ${err}`);
+    } finally {
+      rebuildBtn.disabled = false;
+      rebuildBtn.textContent = "Rebuild from Library";
     }
   });
 
@@ -55,13 +75,13 @@ export function initRecentFilesDialog(fileSelectHandler) {
 /**
  * Show the recent files dialog
  */
-export function showRecentFilesDialog() {
+export async function showRecentFilesDialog() {
   if (!dialog) {
     console.error("Recent files dialog not initialized");
     return;
   }
 
-  renderGrid();
+  await renderGrid();
   dialog.showModal();
 }
 
@@ -71,7 +91,13 @@ export function showRecentFilesDialog() {
 async function renderGrid() {
   const grid = document.getElementById("recent-files-grid");
   const emptyState = document.getElementById("recent-files-empty");
-  const files = getRecentFiles();
+
+  // Show loading state
+  grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">Loading...</div>';
+  grid.classList.remove("hidden");
+  emptyState.classList.add("hidden");
+
+  const files = await getRecentFiles();
 
   if (files.length === 0) {
     grid.classList.add("hidden");
@@ -87,9 +113,9 @@ async function renderGrid() {
     const item = createThumbnailItem(file);
     grid.appendChild(item);
 
-    // Load thumbnail if not cached
+    // Load thumbnail from file if not in database
     if (!file.thumbnail && bridge.isTauri()) {
-      loadThumbnail(file.path, item);
+      loadThumbnailFromFile(file.path, item);
     }
   }
 }
@@ -104,8 +130,9 @@ function createThumbnailItem(file) {
   item.className = "group relative cursor-pointer rounded-lg overflow-hidden bg-gray-700 hover:bg-gray-600 transition-colors";
   item.dataset.path = file.path;
 
-  // Format date
-  const date = new Date(file.lastOpened);
+  // Format date - use lastOpened if available, otherwise modified
+  const dateValue = file.lastOpened || file.modified;
+  const date = dateValue ? new Date(dateValue) : new Date();
   const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
   // Format snapshot count (max 99, show 99+ for higher)
@@ -154,13 +181,13 @@ function createThumbnailItem(file) {
 
   // Remove button
   const removeBtn = item.querySelector(".remove-btn");
-  removeBtn.addEventListener("click", (e) => {
+  removeBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
-    removeRecentFile(file.path);
+    await removeRecentFile(file.path);
     item.remove();
 
     // Check if grid is now empty
-    const files = getRecentFiles();
+    const files = await getRecentFiles();
     if (files.length === 0) {
       document.getElementById("recent-files-grid").classList.add("hidden");
       document.getElementById("recent-files-empty").classList.remove("hidden");
@@ -174,11 +201,11 @@ function createThumbnailItem(file) {
 }
 
 /**
- * Load metadata (thumbnail + snapshot count) from file and update the item
+ * Load thumbnail from the actual .ssce file and update the display
  * @param {string} path - File path
  * @param {HTMLElement} item - Grid item element
  */
-async function loadThumbnail(path, item) {
+async function loadThumbnailFromFile(path, item) {
   try {
     const invoke = window.__TAURI__.core.invoke;
     const metadata = await invoke("get_ssce_metadata", { path });
@@ -202,12 +229,11 @@ async function loadThumbnail(path, item) {
       }
     }
 
-    // Add snapshot badge if count > 0
+    // Add snapshot badge if count > 0 and not already present
     if (metadata.snapshot_count > 0) {
       const snapshotDisplay = metadata.snapshot_count > 99 ? "99+" : metadata.snapshot_count.toString();
       const existingBadge = item.querySelector(".snapshot-badge");
       if (!existingBadge) {
-        // Find the date row container and add badge there
         const dateRow = item.querySelector(".flex.items-center.justify-between");
         if (dateRow) {
           const badge = document.createElement("span");
@@ -218,9 +244,6 @@ async function loadThumbnail(path, item) {
         }
       }
     }
-
-    // Cache the metadata in localStorage
-    updateRecentFileMetadata(path, metadata.thumbnail, metadata.snapshot_count);
   } catch (err) {
     console.error("Failed to load metadata:", err);
     // Show error state

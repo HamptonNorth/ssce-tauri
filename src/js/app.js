@@ -34,6 +34,7 @@ import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handl
 import * as tauriBridge from "./tauri-bridge.js";
 import { initDialogs, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
 import { initRecentFilesDialog, showRecentFilesDialog } from "./ui/dialogs/recent-files-dialog.js";
+import { initSearchLibraryDialog, showSearchLibraryDialog } from "./ui/dialogs/search-library-dialog.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
 import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime, getAutosaveConfig } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
@@ -178,6 +179,7 @@ async function init() {
     handleExportPng: () => handleExportPngCommand(updateStatusBar),
     handleExportJpg: () => handleExportJpgCommand(updateStatusBar),
     handleRecentFiles: () => showRecentFilesDialog(),
+    handleSearchLibrary: () => showSearchLibraryDialog(),
     handleEditFileInfo,
     handleSnapshot: () => handleSnapshot(false),
     handleViewSnapshots: () => showViewSnapshotsDialog(),
@@ -208,12 +210,13 @@ async function init() {
     getAutoIncrementedFilename,
   });
 
-  // Initialize recent files dialog with file open handler
-  initRecentFilesDialog(async (filePath) => {
-    // Load the selected file
+  // Initialize recent files and search library dialogs with file open handler
+  const fileOpenHandler = async (filePath) => {
     const { loadFileFromPath } = await import("./file-operations.js");
     await loadFileFromPath(filePath, updateStatusBar);
-  });
+  };
+  initRecentFilesDialog(fileOpenHandler);
+  initSearchLibraryDialog(fileOpenHandler);
 
   // Check for recovery files from previous crash
   await checkRecoveryFiles();

@@ -1,162 +1,218 @@
 /**
  * Recent Files Management
- * Tracks recently opened/saved .ssce files in localStorage
+ * Tracks recently opened/saved .ssce files using SQLite database
  */
 
-const STORAGE_KEY = "ssce_recent_files";
 const DEFAULT_MAX_COUNT = 20;
+const invoke = window.__TAURI__?.core?.invoke;
 
 /**
  * @typedef {Object} RecentFile
+ * @property {number} [id] - Database ID
  * @property {string} path - Full file path
  * @property {string} filename - Just the filename
- * @property {number} lastOpened - Unix timestamp of last open/save
- * @property {string} [thumbnail] - Base64 thumbnail data URL (cached from file)
- * @property {number} [snapshotCount] - Number of snapshots in the file
+ * @property {string} [thumbnail] - Base64 thumbnail data URL
+ * @property {string} [title] - File title from frontMatter
+ * @property {string} [summary] - File summary from frontMatter
+ * @property {string} [keywords] - Space-separated keywords
+ * @property {string} [modified] - ISO timestamp of last modification
+ * @property {string} [lastOpened] - ISO timestamp of last open
+ * @property {number} snapshotCount - Number of snapshots in the file
  */
 
 /**
- * Get the max recent files count from config
- * @returns {number}
+ * Get recent files from SQLite database
+ * @param {number} [limit] - Maximum number of files to return
+ * @returns {Promise<RecentFile[]>}
  */
-function getMaxCount() {
-  // Try to get from loaded config (sync access to already-loaded config)
-  try {
-    // Config is loaded at app startup, access via global if needed
-    // For now, just use the default since config loading is async
-    return DEFAULT_MAX_COUNT;
-  } catch {
-    return DEFAULT_MAX_COUNT;
+export async function getRecentFiles(limit = DEFAULT_MAX_COUNT) {
+  if (!invoke) {
+    console.warn("Tauri invoke not available, returning empty recent files");
+    return [];
   }
-}
 
-/**
- * Get all recent files from localStorage
- * @returns {RecentFile[]}
- */
-export function getRecentFiles() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    return JSON.parse(stored);
+    const files = await invoke("db_get_recent_files", { limit });
+    // Convert snake_case to camelCase for JS consumption
+    return files.map((f) => ({
+      id: f.id,
+      path: f.path,
+      filename: f.filename,
+      thumbnail: f.thumbnail,
+      title: f.title,
+      summary: f.summary,
+      keywords: f.keywords,
+      modified: f.modified,
+      lastOpened: f.last_opened,
+      snapshotCount: f.snapshot_count || 0,
+    }));
   } catch (err) {
-    console.error("Failed to load recent files:", err);
+    console.error("Failed to load recent files from database:", err);
     return [];
   }
 }
 
 /**
- * Add or update a file in the recent files list
+ * Add or update a file in the library database
  * @param {string} path - Full file path
- * @param {string} [thumbnail] - Optional thumbnail data URL
+ * @param {Object} metadata - File metadata
+ * @param {string} [metadata.thumbnail] - Thumbnail data URL
+ * @param {string} [metadata.title] - File title
+ * @param {string} [metadata.summary] - File summary
+ * @param {string} [metadata.keywords] - Space-separated keywords
+ * @param {string} [metadata.modified] - ISO timestamp
+ * @param {number} [metadata.snapshotCount] - Number of snapshots
+ * @returns {Promise<number>} - Database ID
  */
-export function addRecentFile(path, thumbnail = null, snapshotCount = 0) {
+export async function addRecentFile(path, metadata = {}) {
   if (!path) return;
+  if (!invoke) {
+    console.warn("Tauri invoke not available");
+    return;
+  }
 
   // Only track .ssce files
   if (!path.toLowerCase().endsWith(".ssce")) return;
 
-  const files = getRecentFiles();
   const filename = path.split(/[/\\]/).pop();
-  const now = Date.now();
+  const now = new Date().toISOString();
 
-  // Remove existing entries with same path OR same filename
-  // This prevents duplicates when saving to library (same filename, different path)
-  const filtered = files.filter((f) => f.path !== path && f.filename !== filename);
-
-  // Add new entry at the beginning
-  const newEntry = {
-    path,
-    filename,
-    lastOpened: now,
-    snapshotCount: snapshotCount || 0,
-  };
-
-  // Only include thumbnail if provided (we'll load it on-demand otherwise)
-  if (thumbnail) {
-    newEntry.thumbnail = thumbnail;
-  }
-
-  filtered.unshift(newEntry);
-
-  // Trim to max count
-  const maxCount = getMaxCount();
-  const trimmed = filtered.slice(0, maxCount);
-
-  // Save back to localStorage
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    const id = await invoke("db_upsert_file", {
+      file: {
+        path,
+        filename,
+        thumbnail: metadata.thumbnail || null,
+        title: metadata.title || null,
+        summary: metadata.summary || null,
+        keywords: metadata.keywords || null,
+        modified: metadata.modified || now,
+        last_opened: now,
+        snapshot_count: metadata.snapshotCount || 0,
+      },
+    });
+    return id;
   } catch (err) {
-    console.error("Failed to save recent files:", err);
+    console.error("Failed to add recent file to database:", err);
   }
 }
 
 /**
- * Remove a file from the recent files list
+ * Update just the last_opened timestamp for a file
+ * @param {string} path - Full file path
+ * @returns {Promise<void>}
+ */
+export async function updateLastOpened(path) {
+  if (!invoke) return;
+
+  try {
+    const timestamp = new Date().toISOString();
+    await invoke("db_update_last_opened", { path, timestamp });
+  } catch (err) {
+    console.error("Failed to update last opened:", err);
+  }
+}
+
+/**
+ * Remove a file from the library database
  * @param {string} path - Full file path to remove
+ * @returns {Promise<void>}
  */
-export function removeRecentFile(path) {
-  const files = getRecentFiles();
-  const filtered = files.filter((f) => f.path !== path);
+export async function removeRecentFile(path) {
+  if (!invoke) return;
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    await invoke("db_remove_file", { path });
   } catch (err) {
-    console.error("Failed to save recent files:", err);
+    console.error("Failed to remove recent file:", err);
   }
 }
 
 /**
- * Clear all recent files
+ * Search files in the library using FTS5
+ * @param {Object} params - Search parameters
+ * @param {string} [params.query] - Search text (matches filename, title, summary, keywords)
+ * @param {string} [params.fromDate] - Filter by modified date (ISO string)
+ * @param {string} [params.toDate] - Filter by modified date (ISO string)
+ * @param {number} [params.limit] - Maximum results (default 50)
+ * @returns {Promise<RecentFile[]>}
  */
-export function clearRecentFiles() {
+export async function searchFiles(params = {}) {
+  if (!invoke) {
+    console.warn("Tauri invoke not available");
+    return [];
+  }
+
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    const files = await invoke("db_search_files", {
+      params: {
+        query: params.query || null,
+        from_date: params.fromDate || null,
+        to_date: params.toDate || null,
+        limit: params.limit || 50,
+      },
+    });
+
+    return files.map((f) => ({
+      id: f.id,
+      path: f.path,
+      filename: f.filename,
+      thumbnail: f.thumbnail,
+      title: f.title,
+      summary: f.summary,
+      keywords: f.keywords,
+      modified: f.modified,
+      lastOpened: f.last_opened,
+      snapshotCount: f.snapshot_count || 0,
+    }));
   } catch (err) {
-    console.error("Failed to clear recent files:", err);
+    console.error("Failed to search files:", err);
+    return [];
   }
 }
 
 /**
- * Update the thumbnail for a recent file
- * @param {string} path - File path
- * @param {string} thumbnail - Thumbnail data URL
+ * Rebuild the library database from the library folder
+ * Scans all .ssce files and updates/adds them to the database
+ * Also removes stale entries for files that no longer exist
+ * @param {string} libraryPath - Path to the library folder
+ * @returns {Promise<number>} - Number of files indexed
+ */
+export async function rebuildFromLibrary(libraryPath) {
+  if (!invoke) {
+    console.warn("Tauri invoke not available");
+    return 0;
+  }
+
+  try {
+    const count = await invoke("db_rebuild_from_library", { libraryPath });
+    return count;
+  } catch (err) {
+    console.error("Failed to rebuild library:", err);
+    throw err;
+  }
+}
+
+// Legacy functions for backwards compatibility during transition
+// These can be removed once all code is updated
+
+/**
+ * @deprecated Use addRecentFile with metadata object instead
  */
 export function updateRecentFileThumbnail(path, thumbnail) {
-  const files = getRecentFiles();
-  const file = files.find((f) => f.path === path);
-
-  if (file) {
-    file.thumbnail = thumbnail;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-    } catch (err) {
-      console.error("Failed to update recent file thumbnail:", err);
-    }
-  }
+  console.warn("updateRecentFileThumbnail is deprecated, use addRecentFile");
 }
 
 /**
- * Update metadata (thumbnail and snapshot count) for a recent file
- * @param {string} path - File path
- * @param {string} [thumbnail] - Thumbnail data URL
- * @param {number} [snapshotCount] - Number of snapshots
+ * @deprecated Use addRecentFile with metadata object instead
  */
 export function updateRecentFileMetadata(path, thumbnail, snapshotCount) {
-  const files = getRecentFiles();
-  const file = files.find((f) => f.path === path);
+  console.warn("updateRecentFileMetadata is deprecated, use addRecentFile");
+}
 
-  if (file) {
-    if (thumbnail !== undefined && thumbnail !== null) {
-      file.thumbnail = thumbnail;
-    }
-    if (snapshotCount !== undefined) {
-      file.snapshotCount = snapshotCount;
-    }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-    } catch (err) {
-      console.error("Failed to update recent file metadata:", err);
-    }
-  }
+/**
+ * @deprecated Not needed with SQLite storage
+ */
+export function clearRecentFiles() {
+  console.warn("clearRecentFiles is deprecated");
 }

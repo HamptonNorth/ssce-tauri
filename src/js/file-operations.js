@@ -137,7 +137,14 @@ export async function loadFileFromPath(filePath, updateStatusBar) {
 
       // Track in recent files (for .ssce files only)
       const snapshotCount = sessionData.snapshots?.length || 0;
-      addRecentFile(filePath, sessionData.thumbnail, snapshotCount);
+      addRecentFile(filePath, {
+        thumbnail: sessionData.thumbnail,
+        title: sessionData.frontMatter?.title,
+        summary: sessionData.frontMatter?.summary,
+        keywords: sessionData.keywords?.join(" "),
+        modified: sessionData.frontMatter?.modified,
+        snapshotCount,
+      });
 
       hideSpinner();
       showToast(`Loaded: ${state.filename}`, "success");
@@ -339,13 +346,19 @@ export async function handleSave(handleSaveAsCallback, updateStatusBar) {
       const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots, canvas, filename });
       await bridge.saveSsce(state.currentFilePath, ssceData);
 
-      // Track in recent files (extract thumbnail and snapshot count from serialized data)
+      // Track in recent files (extract metadata from serialized data)
       try {
         const parsed = JSON.parse(ssceData);
-        const snapshotCount = parsed.snapshots?.length || 0;
-        addRecentFile(state.currentFilePath, parsed.thumbnail, snapshotCount);
+        addRecentFile(state.currentFilePath, {
+          thumbnail: parsed.thumbnail,
+          title: parsed.frontMatter?.title,
+          summary: parsed.frontMatter?.summary,
+          keywords: parsed.keywords?.join(" "),
+          modified: parsed.frontMatter?.modified,
+          snapshotCount: parsed.snapshots?.length || 0,
+        });
       } catch (e) {
-        addRecentFile(state.currentFilePath, null, snapshots.length);
+        addRecentFile(state.currentFilePath, { snapshotCount: snapshots.length });
       }
 
       state.hasUnsavedChanges = false;
@@ -565,10 +578,16 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
     // Track in recent files
     try {
       const parsed = JSON.parse(ssceData);
-      const snapshotCount = parsed.snapshots?.length || 0;
-      addRecentFile(filePath, parsed.thumbnail, snapshotCount);
+      addRecentFile(filePath, {
+        thumbnail: parsed.thumbnail,
+        title: parsed.frontMatter?.title,
+        summary: parsed.frontMatter?.summary,
+        keywords: parsed.keywords?.join(" "),
+        modified: parsed.frontMatter?.modified,
+        snapshotCount: parsed.snapshots?.length || 0,
+      });
     } catch (e) {
-      addRecentFile(filePath, null, snapshots.length);
+      addRecentFile(filePath, { snapshotCount: snapshots.length });
     }
 
     // Update state

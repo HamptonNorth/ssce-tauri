@@ -20,11 +20,8 @@
         <!-- Top Toolbar                                                        -->
         <!-- ================================================================== -->
         <header class="sticky top-0 bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center gap-3 z-40">
-            <!-- Branding -->
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded border border-gray-700 mr-2" style="background-color: #f2e6e6">
-                <img src="/images/logo.svg" alt="SSCE" class="w-5 h-5" />
-                <span class="text-sm font-bold text-gray-800 hidden sm:inline">SSCE</span>
-            </div>
+            <!-- Logo -->
+            <img src="/images/logo.svg" alt="SSCE" class="w-5 h-5 -ml-0.5 -mr-1" />
 
             <!-- File dropdown -->
             <div class="relative border-r border-gray-600 pr-3">
@@ -69,6 +66,12 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span>Recent Files...</span>
+                    </button>
+                    <button id="menu-search-library" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <span>Search Library...</span>
                     </button>
                     <!-- More submenu -->
                     <div id="submenu-more-container" class="relative submenu-container">
@@ -1009,6 +1012,58 @@
             <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-600">
                 <button id="recent-files-clear" class="px-3 py-1.5 text-sm text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded">Clear History</button>
                 <button id="recent-files-cancel" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">Close</button>
+            </div>
+        </dialog>
+
+        <!-- Search Library Dialog -->
+        <dialog id="dialog-search-library" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 w-[95vw] max-w-[1800px]">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">Search Library</h2>
+                <button id="search-library-close" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Search Controls -->
+            <div class="flex flex-wrap gap-4 mb-4">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs text-gray-400 mb-1">Search</label>
+                    <input type="text" id="search-library-query" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500" placeholder="Search by filename, title, keywords..." />
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">From Date</label>
+                    <input type="text" id="search-library-from" placeholder="e.g. 1/15/2026" class="w-32 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">To Date</label>
+                    <input type="text" id="search-library-to" placeholder="e.g. 1/31/2026" class="w-32 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500" />
+                </div>
+                <div class="flex items-end">
+                    <button id="search-library-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium">Search</button>
+                </div>
+                <div class="flex items-end">
+                    <button id="search-library-clear" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm">Clear</button>
+                </div>
+            </div>
+
+            <div id="search-library-status" class="text-sm text-gray-400 mb-2"></div>
+
+            <div id="search-library-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4 max-h-[60vh] overflow-y-auto p-1">
+                <!-- Results will be inserted here -->
+            </div>
+
+            <div id="search-library-empty" class="hidden text-center py-12 text-gray-400">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <p>No results found</p>
+                <p class="text-sm mt-1">Try different search terms or date range</p>
+            </div>
+
+            <div class="flex justify-end items-center mt-4 pt-4 border-t border-gray-600">
+                <button id="search-library-cancel" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">Close</button>
             </div>
         </dialog>
 
