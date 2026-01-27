@@ -1,6 +1,19 @@
 /**
  * Search Library Dialog
- * Full-text search of .ssce files using FTS5
+ *
+ * Provides full-text search of .ssce files in the library using SQLite FTS5.
+ * Users can search by keywords and filter by date range.
+ *
+ * Features:
+ * - Text search: Matches filename, title, summary, keywords (with prefix matching)
+ * - Date filtering: From/To date range on the modified date
+ * - Locale-aware date parsing: Automatically detects UK (dd/mm/yyyy) vs US (mm/dd/yyyy)
+ * - Thumbnail grid: Visual preview of search results
+ *
+ * The actual search is performed by the Rust backend via db_search_files command.
+ * This dialog handles the UI and date parsing/validation.
+ *
+ * @module search-library-dialog
  */
 
 import { searchFiles } from "../../utils/recent-files.js";

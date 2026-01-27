@@ -1,4 +1,25 @@
-// Prevents additional console window on Windows in release
+// ============================================================================
+// SSCE Desktop - Tauri Backend
+// ============================================================================
+//
+// This file contains all the Rust code for the SSCE Desktop application.
+// It provides native functionality that JavaScript cannot do directly:
+//
+// 1. FILE SYSTEM ACCESS - Reading/writing files, directory browsing
+// 2. SQLITE DATABASE - Library of .ssce files with full-text search
+// 3. NATIVE DIALOGS - Open/Save dialogs via Tauri plugins
+// 4. SYSTEM TRAY - Background app with tray icon
+// 5. CONFIGURATION - Loading defaults.json with path expansion
+//
+// The JavaScript frontend calls these functions via `window.__TAURI__.core.invoke()`.
+// Each #[tauri::command] function becomes callable from JS.
+//
+// Example JS call:
+//   const result = await window.__TAURI__.core.invoke('load_image', { path: '/home/user/photo.png' });
+//
+// ============================================================================
+
+// Prevents additional console window on Windows in release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -18,10 +39,26 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 // ============================================================================
 // Database State
 // ============================================================================
+//
+// SQLite database for the file library. Stores metadata about .ssce files
+// so users can search and browse their library without parsing every file.
+//
+// The database is stored at:
+//   Linux:   ~/.config/ssce-desktop/library.db
+//   Windows: %APPDATA%/ssce-desktop/library.db
+//
+// Tables:
+//   - files: Main table with path, filename, thumbnail, metadata
+//   - files_fts: FTS5 virtual table for full-text search
+//
+// ============================================================================
 
+/// Wrapper to hold the database connection. The Mutex ensures thread-safe access
+/// since Tauri commands can run on different threads.
 struct DbState(Mutex<Connection>);
 
-/// Initialize the SQLite database with FTS5 support
+/// Initialize the SQLite database with FTS5 (Full-Text Search) support.
+/// Creates tables and triggers if they don't exist.
 fn init_database() -> Result<Connection, rusqlite::Error> {
     let db_path = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -98,7 +135,17 @@ fn init_database() -> Result<Connection, rusqlite::Error> {
 // ============================================================================
 // Database Types
 // ============================================================================
+//
+// These structs define the shape of data passed between JavaScript and Rust.
+// Serde handles JSON serialization/deserialization automatically.
+//
+// In JS, you'd call: invoke('db_upsert_file', { file: { path: '...', filename: '...' } })
+// Rust receives it as a LibraryFile struct.
+//
+// ============================================================================
 
+/// Represents a file entry in the library database.
+/// Maps directly to the 'files' table columns.
 #[derive(Serialize, Deserialize)]
 struct LibraryFile {
     id: Option<i64>,
@@ -124,8 +171,18 @@ struct SearchParams {
 // ============================================================================
 // Database Commands
 // ============================================================================
+//
+// These commands are called from JavaScript to manage the library database.
+// The State<DbState> parameter is automatically injected by Tauri - it gives
+// access to the shared database connection we set up in main().
+//
+// JS usage: await invoke('db_upsert_file', { file: {...} })
+//
+// ============================================================================
 
-/// Add or update a file in the library database
+/// Add or update a file in the library database.
+/// Uses SQLite's UPSERT (INSERT ... ON CONFLICT) to handle both cases.
+/// Called when opening or saving .ssce files to keep the library up to date.
 #[tauri::command]
 fn db_upsert_file(state: State<DbState>, file: LibraryFile) -> Result<i64, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -160,7 +217,8 @@ fn db_upsert_file(state: State<DbState>, file: LibraryFile) -> Result<i64, Strin
     Ok(id)
 }
 
-/// Get recent files ordered by last_opened
+/// Get recent files ordered by last_opened (most recent first).
+/// Used to populate the "Recent Files" dialog in the UI.
 #[tauri::command]
 fn db_get_recent_files(state: State<DbState>, limit: i32) -> Result<Vec<LibraryFile>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -197,7 +255,9 @@ fn db_get_recent_files(state: State<DbState>, limit: i32) -> Result<Vec<LibraryF
     Ok(files)
 }
 
-/// Search files using FTS5 and optional date filters
+/// Search files using FTS5 full-text search with optional date range filters.
+/// Used by the "Search Library" dialog for finding files by keyword.
+/// Supports prefix matching (typing "scr" matches "screenshot").
 #[tauri::command]
 fn db_search_files(state: State<DbState>, params: SearchParams) -> Result<Vec<LibraryFile>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -331,7 +391,10 @@ fn db_update_last_opened(state: State<DbState>, path: String, timestamp: String)
     Ok(())
 }
 
-/// Scan library folder and index all .ssce files
+/// Scan the library folder and index all .ssce files found.
+/// Called via "Rebuild from Library" button in Recent Files dialog.
+/// Extracts metadata (thumbnail, title, keywords) from each file.
+/// Also removes stale entries for files that no longer exist.
 #[tauri::command]
 fn db_rebuild_from_library(state: State<DbState>, library_path: String) -> Result<i32, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -449,6 +512,15 @@ fn db_rebuild_from_library(state: State<DbState>, library_path: String) -> Resul
     Ok(count)
 }
 
+// ============================================================================
+// File System Commands
+// ============================================================================
+//
+// These commands provide file system access to the JavaScript frontend.
+// They handle reading/writing images and .ssce project files.
+//
+// ============================================================================
+
 /// Represents a file or directory entry for directory listings
 #[derive(Serialize)]
 struct FileEntry {
@@ -457,7 +529,8 @@ struct FileEntry {
     size: u64,
 }
 
-/// Browse a directory and return list of files/directories
+/// Browse a directory and return list of files/directories.
+/// Used for custom file browser dialogs (not currently used - native dialogs preferred).
 /// Filters: "all", "ssce", "images"
 #[tauri::command]
 fn browse_directory(dir: String, filter: String) -> Result<Vec<FileEntry>, String> {
@@ -524,7 +597,9 @@ fn browse_directory(dir: String, filter: String) -> Result<Vec<FileEntry>, Strin
     Ok(entries)
 }
 
-/// Load an image file and return as base64-encoded string
+/// Load an image file and return as base64-encoded data URL.
+/// The data URL format (data:image/png;base64,...) can be used directly
+/// as an <img> src or drawn onto a canvas.
 #[tauri::command]
 fn load_image(path: String) -> Result<String, String> {
     let file_path = Path::new(&path);
@@ -555,7 +630,9 @@ fn load_image(path: String) -> Result<String, String> {
     Ok(format!("data:{};base64,{}", mime_type, base64_data))
 }
 
-/// Save base64-encoded image data to a file
+/// Save base64-encoded image data to a file.
+/// Accepts data URL format (strips the "data:image/png;base64," prefix).
+/// Creates parent directories if they don't exist.
 #[tauri::command]
 fn save_image(path: String, data: String) -> Result<(), String> {
     // Strip data URL prefix if present (e.g., "data:image/png;base64,")
@@ -692,8 +769,14 @@ fn file_exists(path: String) -> bool {
 // ============================================================================
 // Autosave Commands
 // ============================================================================
+//
+// Autosave provides crash recovery by periodically saving work to temp files.
+// Files are stored in ~/.ssce-temp/ (Linux) or %APPDATA%/.ssce-temp (Windows).
+// On startup, the app checks for recovery files and prompts to restore.
+//
+// ============================================================================
 
-/// Autosave file entry with metadata
+/// Autosave file entry with metadata for listing recovery files
 #[derive(Serialize)]
 struct AutosaveEntry {
     name: String,
@@ -806,15 +889,29 @@ fn get_downloads_dir() -> Result<String, String> {
         .ok_or_else(|| "Could not determine downloads directory".to_string())
 }
 
-/// Environment settings (build info only - paths now in defaults.json)
+// ============================================================================
+// Configuration Commands
+// ============================================================================
+//
+// Configuration is loaded from defaults.json which contains:
+// - Tool defaults (colours, sizes, line styles)
+// - File paths (library folder, default open/save directories)
+// - UI settings (colour palette, presets)
+//
+// User customizations are saved to ~/.config/ssce-desktop/defaults.json
+// which takes priority over the bundled defaults.
+//
+// ============================================================================
+
+/// Environment settings returned to JavaScript (build info only)
 #[derive(Serialize)]
 struct EnvConfig {
     show_build_timestamp: bool,
     build_timestamp: Option<String>,
 }
 
-/// Read build info settings
-/// Path settings are now in defaults.json, this only returns build timestamp info
+/// Read build info settings.
+/// Returns the build timestamp for display in the window title/footer.
 #[tauri::command]
 fn get_env_config(app_handle: tauri::AppHandle) -> Result<EnvConfig, String> {
     // Check if we should show build timestamp (defaults to true)
@@ -1038,11 +1135,25 @@ fn open_in_default_app(path: String) -> Result<(), String> {
     }
 }
 
+// ============================================================================
+// Application Entry Point
+// ============================================================================
+//
+// main() sets up the Tauri application:
+// 1. Initializes the SQLite database
+// 2. Registers plugins (dialogs, clipboard, window state)
+// 3. Sets up the system tray with menu
+// 4. Registers all command handlers
+// 5. Starts the application event loop
+//
+// ============================================================================
+
 fn main() {
-    // Initialize database
+    // Initialize the SQLite database for the file library
     let db = init_database().expect("Failed to initialize database");
 
     tauri::Builder::default()
+        // Make the database connection available to all commands via State<DbState>
         .manage(DbState(Mutex::new(db)))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

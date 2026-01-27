@@ -1,6 +1,21 @@
 /**
- * Recent Files Management
- * Tracks recently opened/saved .ssce files using SQLite database
+ * Recent Files & Library Management
+ *
+ * Manages the library of .ssce files using a SQLite database stored in the
+ * user's config directory. The database enables:
+ *
+ * - Recent Files: Quick access to recently opened files with thumbnails
+ * - Full-Text Search: Search by filename, title, summary, keywords
+ * - Date Filtering: Find files modified within a date range
+ *
+ * All database operations are performed via Tauri commands (Rust backend).
+ * The Rust code handles the actual SQLite queries and FTS5 indexing.
+ *
+ * Database location:
+ *   Linux:   ~/.config/ssce-desktop/library.db
+ *   Windows: %APPDATA%/ssce-desktop/library.db
+ *
+ * @module recent-files
  */
 
 const DEFAULT_MAX_COUNT = 20;
@@ -191,28 +206,4 @@ export async function rebuildFromLibrary(libraryPath) {
     console.error("Failed to rebuild library:", err);
     throw err;
   }
-}
-
-// Legacy functions for backwards compatibility during transition
-// These can be removed once all code is updated
-
-/**
- * @deprecated Use addRecentFile with metadata object instead
- */
-export function updateRecentFileThumbnail(path, thumbnail) {
-  console.warn("updateRecentFileThumbnail is deprecated, use addRecentFile");
-}
-
-/**
- * @deprecated Use addRecentFile with metadata object instead
- */
-export function updateRecentFileMetadata(path, thumbnail, snapshotCount) {
-  console.warn("updateRecentFileMetadata is deprecated, use addRecentFile");
-}
-
-/**
- * @deprecated Not needed with SQLite storage
- */
-export function clearRecentFiles() {
-  console.warn("clearRecentFiles is deprecated");
 }

@@ -382,31 +382,97 @@ Moved file paths from .env to defaults.json:
 
 ---
 
+## 11. v1.2.0: Library Search, SQLite Migration, and Polish
+
+### Session Date: January 2026
+
+### Implementation Summary:
+
+**SQLite Library Database:**
+Migrated recent files from localStorage to SQLite with FTS5 full-text search.
+
+- Added `rusqlite` crate with bundled SQLite
+- Created `library.db` in user config directory
+- Tables: `files` (metadata), `files_fts` (FTS5 virtual table)
+- Triggers keep FTS index in sync automatically
+- New Tauri commands: `db_upsert_file`, `db_get_recent_files`, `db_search_files`, `db_remove_file`, `db_update_last_opened`, `db_rebuild_from_library`
+
+**Search Library Dialog:**
+New dialog for searching .ssce files across the library.
+
+- Full-text search by filename, title, summary, keywords
+- Date range filtering (From/To dates)
+- Locale-aware date parsing (auto-detects UK dd/mm/yyyy vs US mm/dd/yyyy)
+- Dynamic placeholder examples based on browser locale
+- Thumbnail grid results display
+
+**Recent Files Updates:**
+- Converted to async database queries
+- "Clear" button replaced with "Rebuild from Library" for reindexing
+- Loading state during data fetch
+
+**Canvas Background Toggle:**
+Better contrast when editing dark screenshots.
+
+- Right-click on background area toggles light/dark mode
+- Auto-detection: shows toast tip when dark image loaded on dark background
+- Samples canvas edge pixels to calculate luminance
+- Tip shown once per session (not annoying)
+
+**Code Review & Documentation:**
+Pre-release code quality pass.
+
+- Removed deprecated functions from `recent-files.js`
+- Added comprehensive comments to `main.rs` for JS developers
+- Enhanced module headers in key JS files
+- Updated USER_DOCUMENTATION.md with new features
+
+**Files Created:**
+- `src/js/ui/dialogs/search-library-dialog.js` - Search dialog
+- `src/js/utils/canvas-background.js` - Background toggle
+
+**Files Modified:**
+- `src-tauri/Cargo.toml` - Added rusqlite dependency
+- `src-tauri/src/main.rs` - Database commands, extensive comments
+- `src/js/utils/recent-files.js` - SQLite backend, removed deprecated code
+- `src/js/ui/dialogs/recent-files-dialog.js` - Async queries, rebuild button
+- `src/js/file-operations.js` - Contrast check on image load
+- `src/js/app.js` - Init search dialog, background toggle
+- `src/css/app.css` - Light/dark background styles
+- `src/index.html` - Search library dialog markup
+- `src/USER_DOCUMENTATION.md` - New sections for library & search
+
+---
+
 ## Project Statistics
 
 **Rust Backend:**
-- `main.rs`: ~530 lines
-- 14 Tauri commands implemented
+- `main.rs`: ~950 lines (with comments)
+- 22 Tauri commands implemented
+- SQLite database with FTS5 search
 - System tray with context menu
 
 **JavaScript Frontend:**
 - Vanilla JS, ES6 modules (no bundler)
 - `tauri-bridge.js`: Bridge module for Tauri API
-- `config.js`: Configuration loading via Tauri commands
-- `colours.js`: Colour utilities (no HTTP dependencies)
+- `recent-files.js`: SQLite-backed library management
+- `search-library-dialog.js`: Full-text search UI
+- `canvas-background.js`: Contrast detection and toggle
 
 **Configuration:**
 - `.env`: 1 environment variable (SHOW_BUILD_TIMESTAMP for development)
 - `defaults.json`: ~100 lines of UI configuration including file paths (JSON format)
+- `library.db`: SQLite database for file library (user config directory)
 
 **Documentation:**
 - `CLAUDE.md`: Project overview and guidance
 - `HISTORY.md`: Development history (this file)
-- `README.md`: User-facing documentation
+- `USER_DOCUMENTATION.md`: End-user guide
+- `README.md`: Project overview
 - `MIGRATION_TO_TAURI.md`: Migration guide
 - `CHEAT_SHEET.md`: Command reference
 
 ---
 
-*Version: 1.0.4*
+*Version: 1.2.0*
 *Last Updated: January 2026*

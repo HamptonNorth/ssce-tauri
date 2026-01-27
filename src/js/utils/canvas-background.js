@@ -1,6 +1,19 @@
 /**
  * Canvas Container Background Toggle
+ *
  * Allows user to switch between light and dark backgrounds for better contrast
+ * when editing images. Dark screenshots (e.g., terminal, dark mode apps) can be
+ * hard to see against the default dark UI.
+ *
+ * Usage:
+ * - Right-click on the background area (not the canvas) to toggle
+ * - Auto-detection: Shows a toast tip when a dark image is loaded
+ *
+ * The contrast detection samples pixels along the canvas edges and calculates
+ * average luminance. If the image edges are dark and the background is dark,
+ * a helpful tip is shown (once per session).
+ *
+ * @module canvas-background
  */
 
 import { showToast } from "./toast.js";
@@ -8,8 +21,9 @@ import { showToast } from "./toast.js";
 let isLightBackground = false;
 let hasShownContrastTip = false;
 
-// Luminance threshold - below this is considered "dark"
-const DARK_THRESHOLD = 60; // 0-255 scale
+// Luminance threshold (0-255) - below this is considered "dark"
+// 60 works well for detecting dark screenshots while ignoring photos
+const DARK_THRESHOLD = 60;
 
 /**
  * Initialize the canvas background toggle

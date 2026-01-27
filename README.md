@@ -50,6 +50,15 @@ Each tool displays a slide-down settings panel with tool-specific options:
 - **View Snapshots** - Browse, restore, or delete saved snapshots
 - **Export Snapshot Viewer** - Generate shareable HTML with all snapshots
 
+### Library & Search (v1.2.0)
+- **Recent Files** - Quick access to recently opened .ssce files with thumbnails (Ctrl+R)
+- **Search Library** - Full-text search across all .ssce files (Ctrl+Shift+F)
+- **FTS5 indexing** - Search by filename, title, summary, keywords with prefix matching
+- **Date filtering** - Find files modified within a date range
+- **Locale-aware dates** - Auto-detects UK (dd/mm) vs US (mm/dd) date format
+- **Rebuild from Library** - Re-index all files if library is incomplete
+- **SQLite database** - Persistent library stored in user config directory
+
 ### Image Operations
 - **Native file dialogs** - OS-native open/save dialogs
 - **Combine images** - Paste or drop a second image and position it
@@ -62,6 +71,7 @@ Each tool displays a slide-down settings panel with tool-specific options:
 - **System tray** - App minimizes to tray when closed, click to restore
 - **Loading spinner** - Visual feedback during file operations
 - **Native clipboard** - Copy/paste images to system clipboard
+- **Canvas background toggle** - Right-click background to switch light/dark for better contrast with dark images (v1.2.0)
 
 ## Requirements
 
@@ -121,6 +131,8 @@ User customizations are saved to `~/.config/ssce-desktop/defaults.json` (Linux) 
 | Ctrl+O | Open image |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save As |
+| Ctrl+R | Recent Files |
+| Ctrl+Shift+F | Search Library |
 | Ctrl+V | Paste from clipboard |
 | Ctrl+C | Copy to clipboard |
 | Ctrl+P | Print |
@@ -204,6 +216,7 @@ The Rust backend provides these commands callable from JavaScript:
 
 | Command | Purpose |
 |---------|---------|
+| **File Operations** | |
 | `browse_directory` | List files in a directory with filtering |
 | `load_image` | Load image file as base64 data URL |
 | `save_image` | Save base64 image data to file |
@@ -212,13 +225,22 @@ The Rust backend provides these commands callable from JavaScript:
 | `file_exists` | Check if a file exists |
 | `get_home_dir` | Get user's home directory |
 | `get_downloads_dir` | Get user's downloads directory |
+| **Library Database** | |
+| `db_upsert_file` | Add or update file in library |
+| `db_get_recent_files` | Get recently opened files |
+| `db_search_files` | Full-text search with date filtering |
+| `db_remove_file` | Remove file from library |
+| `db_update_last_opened` | Update last opened timestamp |
+| `db_rebuild_from_library` | Scan folder and re-index all .ssce files |
+| **Configuration** | |
 | `get_defaults_config` | Load UI configuration from defaults.json |
-| `get_env_config` | Load environment settings (.env paths, build timestamp) |
+| `get_env_config` | Load build timestamp info |
+| `save_defaults_config` | Save user config to config directory |
+| `get_user_config_path` | Get path to user config file |
+| **Autosave** | |
 | `save_autosave` | Save autosave data to temp file |
 | `delete_autosave` | Delete autosave temp file |
 | `list_autosave_files` | List autosave files in temp directory |
-| `save_defaults_config` | Save user config to config directory |
-| `get_user_config_path` | Get path to user config file |
 
 ## Build Notes
 

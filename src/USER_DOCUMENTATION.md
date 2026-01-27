@@ -1,6 +1,6 @@
 # SSCE Desktop - User Guide
 
-**Version:** 1.0.0  
+**Version:** 1.2.0  
 **Last Updated:** January 2026
 
 A simple, powerful screen capture editor for annotating screenshots and images. Add arrows, text, highlights, and more with an intuitive interface.
@@ -16,10 +16,11 @@ A simple, powerful screen capture editor for annotating screenshots and images. 
 5. [Working with Layers](#working-with-layers)
 6. [Auto-Save and Recovery](#auto-save-and-recovery)
 7. [Saving Your Work](#saving-your-work)
-8. [Keyboard Shortcuts](#keyboard-shortcuts)
-9. [Tips & Tricks](#tips--tricks)
-10. [Troubleshooting](#troubleshooting)
-11. [Appendix: Technical Details](#appendix-technical-details)
+8. [Library & Search](#library--search)
+9. [Keyboard Shortcuts](#keyboard-shortcuts)
+10. [Tips & Tricks](#tips--tricks)
+11. [Troubleshooting](#troubleshooting)
+12. [Appendix: Technical Details](#appendix-technical-details)
 
 ---
 
@@ -361,6 +362,44 @@ For sharing with others, save as PNG or JPG:
 
 ---
 
+## Library & Search
+
+SSCE Desktop maintains a library of your .ssce files, making it easy to find and reopen previous work.
+
+### Recent Files
+
+Access your recently opened files via **File > Recent Files** or press **Ctrl+R**.
+
+The Recent Files dialog shows:
+- Thumbnail preview of each file
+- Filename and title
+- Last modified date
+- Snapshot count (shown as a badge)
+
+Click any file to open it immediately.
+
+**Rebuild from Library:** If your recent files list is incomplete (e.g., after migrating from another computer), click the "Rebuild from Library" button to scan your library folder and re-index all .ssce files.
+
+### Search Library
+
+For larger collections, use **File > Search Library** or press **Ctrl+Shift+F** to search across all your .ssce files.
+
+**Search options:**
+- **Text search** - Matches filename, title, summary, and keywords
+- **Date range** - Filter by modification date (From/To)
+
+The search uses full-text indexing, so partial matches work (typing "scr" finds "screenshot").
+
+**Date format:** Enter dates in your local format (e.g., 15/1/2026 for UK, 1/15/2026 for US). The placeholder shows an example in your locale.
+
+### Library Location
+
+By default, .ssce files are saved to your library folder organised by year-month (e.g., `2026-01/`).
+
+Configure the library path in **Settings** (gear icon in toolbar) under `paths.libraryPath`.
+
+---
+
 ## Keyboard Shortcuts
 
 ### File Operations
@@ -371,6 +410,9 @@ For sharing with others, save as PNG or JPG:
 | Ctrl+O | Open file |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save As |
+| Ctrl+R | Recent Files |
+| Ctrl+Shift+F | Search Library |
+| Alt+S | Take Snapshot |
 | Ctrl+C | Copy to clipboard |
 | Ctrl+V | Paste from clipboard |
 | Ctrl+Z | Undo |
@@ -470,6 +512,14 @@ SSCE has unlimited undo. Don't be afraid to experiment - you can always press Ct
 ### 8. Save Early, Save Often
 
 Press Ctrl+S regularly to save your work. The dot (•) in the status bar reminds you when you have unsaved changes.
+
+### 9. Toggle Background for Dark Images
+
+When editing dark screenshots (terminal, dark mode apps), the default dark background can make edges hard to see.
+
+**Right-click on the background area** (outside the canvas) to toggle between light and dark backgrounds for better contrast.
+
+SSCE will also show a helpful tip when it detects you've loaded a dark image.
 
 ---
 
@@ -597,6 +647,7 @@ See the project README at https://github.com/HamptonNorth/ssce-tauri for build i
 ---
 
 **Version History:**
+- v1.2.0 (Jan 2026): Library search with SQLite/FTS5, canvas background toggle, locale-aware dates
 - v1.0.0 (Jan 2026): Initial Tauri desktop release with native file dialogs
 
 **License:** MIT
