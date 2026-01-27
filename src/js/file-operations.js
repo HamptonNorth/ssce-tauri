@@ -10,6 +10,7 @@ import { showAlertModal, showConfirmModal } from "./ui/dialogs/index.js";
 import { showToast } from "./utils/toast.js";
 import { showSpinner, hideSpinner } from "./utils/spinner.js";
 import * as bridge from "./tauri-bridge.js";
+import { addRecentFile } from "./utils/recent-files.js";
 
 // ============================================================================
 // File Operations
@@ -83,7 +84,7 @@ async function openFileNative(updateStatusBar) {
  * @param {string} filePath - Full path to file
  * @param {Function} updateStatusBar - Callback to update status bar
  */
-async function loadFileFromPath(filePath, updateStatusBar) {
+export async function loadFileFromPath(filePath, updateStatusBar) {
   const isSsce = bridge.isSsceFile(filePath);
 
   // Clear canvas immediately and show spinner
@@ -133,6 +134,10 @@ async function loadFileFromPath(filePath, updateStatusBar) {
 
       // Update undo button state (may be enabled due to snapshots)
       updateUndoRedoButtons();
+
+      // Track in recent files (for .ssce files only)
+      const snapshotCount = sessionData.snapshots?.length || 0;
+      addRecentFile(filePath, sessionData.thumbnail, snapshotCount);
 
       hideSpinner();
       showToast(`Loaded: ${state.filename}`, "success");
@@ -305,24 +310,46 @@ async function loadSsceFromFile(file, updateStatusBar) {
 }
 
 /**
- * Handle save button click
- * @param {Function} handleSaveAs - Function to call for Save As
+ * Handle save button click - saves as .ssce format
+ * @param {Function} handleSaveAsCallback - Function to call for Save As (unused, kept for compatibility)
  * @param {Function} updateStatusBar - Callback to update status bar
  */
-export async function handleSave(handleSaveAs, updateStatusBar) {
+export async function handleSave(handleSaveAsCallback, updateStatusBar) {
   if (!modules.layerManager.hasLayers()) {
     await showAlertModal("Nothing to Save", "Open or create an image first before saving.", "info");
     return;
   }
 
-  // If we have a current file path and it's not an ssce file being saved as image, save directly
-  if (state.currentFilePath && bridge.isTauri()) {
+  // If we have a current .ssce file path, save directly to it
+  if (state.currentFilePath && bridge.isTauri() && bridge.isSsceFile(state.currentFilePath)) {
     showSpinner();
     try {
-      const imageData = modules.canvasManager.toDataURL();
-      await bridge.saveImage(state.currentFilePath, imageData);
+      const { serialize } = await import("./utils/ssce-format.js");
+
+      const layers = modules.layerManager.getLayers();
+      const canvasSize = modules.canvasManager.getSize();
+      const frontMatter = {
+        ...(state.frontMatter || {}),
+        modified: new Date().toISOString(),
+      };
+      const snapshots = state.snapshots || [];
+      const canvas = modules.canvasManager.getCanvas();
+      const filename = state.filename;
+
+      const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots, canvas, filename });
+      await bridge.saveSsce(state.currentFilePath, ssceData);
+
+      // Track in recent files (extract thumbnail and snapshot count from serialized data)
+      try {
+        const parsed = JSON.parse(ssceData);
+        const snapshotCount = parsed.snapshots?.length || 0;
+        addRecentFile(state.currentFilePath, parsed.thumbnail, snapshotCount);
+      } catch (e) {
+        addRecentFile(state.currentFilePath, null, snapshots.length);
+      }
 
       state.hasUnsavedChanges = false;
+      state.frontMatter = frontMatter;
       showToast(`Saved: ${state.filename}`, "success");
       if (updateStatusBar) updateStatusBar();
       return;
@@ -335,12 +362,12 @@ export async function handleSave(handleSaveAs, updateStatusBar) {
     }
   }
 
-  // Otherwise, do Save As
-  handleSaveAs();
+  // Otherwise, do Save As (which now saves as .ssce)
+  await handleSaveAs(updateStatusBar);
 }
 
 /**
- * Handle save as - shows native save dialog
+ * Handle save as - shows native save dialog for .ssce files
  * @param {Function} updateStatusBar - Callback to update status bar
  * @param {string} [suggestedFilename] - Optional filename to use as default in save dialog
  * @returns {Promise<boolean>} True if saved successfully, false if cancelled or error
@@ -351,83 +378,114 @@ export async function handleSaveAs(updateStatusBar, suggestedFilename) {
     return false;
   }
 
-  if (bridge.isTauri()) {
-    return await saveAsNative(updateStatusBar, suggestedFilename);
-  } else {
-    // Fallback: download via browser
-    const imageData = modules.canvasManager.toDataURL();
-    const { downloadImage } = await import("./utils/export.js");
-    downloadImage(imageData, suggestedFilename || state.filename || "screenshot.png");
-    return true;
-  }
+  // Save as .ssce file
+  const result = await saveAsSsce({ suggestedFilename }, updateStatusBar);
+  return result.success;
 }
 
+// ============================================================================
+// Export Functions (PNG/JPG)
+// ============================================================================
+
 /**
- * Save file using native Tauri dialog
- * @param {Function} updateStatusBar - Callback to update status bar
- * @param {string} [suggestedFilename] - Optional filename to use as default in save dialog
- * @returns {Promise<boolean>} True if saved successfully, false if cancelled or error
+ * Export as PNG image using native dialog
+ * @param {Function} [updateStatusBar] - Optional callback to update status bar
+ * @returns {Promise<boolean>} True if exported successfully, false if cancelled or error
  */
-async function saveAsNative(updateStatusBar, suggestedFilename) {
-  // Determine default filename - use suggested name, fall back to state, then default
-  let defaultName = suggestedFilename || state.filename || "screenshot.png";
-  const lowerName = defaultName.toLowerCase();
+export async function exportAsPng(updateStatusBar) {
+  if (!modules.layerManager.hasLayers()) {
+    await showAlertModal("Nothing to Export", "Open or create an image first before exporting.", "info");
+    return false;
+  }
 
-  // Only add .png extension if file doesn't have a supported image extension
-  const supportedExtensions = [".png", ".jpg", ".jpeg", ".ssce"];
-  const hasValidExtension = supportedExtensions.some((ext) => lowerName.endsWith(ext));
+  if (!bridge.isTauri()) {
+    // Fallback: download via browser
+    const imageData = modules.canvasManager.toDataURL("image/png");
+    const { downloadImage } = await import("./utils/export.js");
+    downloadImage(imageData, state.filename?.replace(/\.[^/.]+$/, ".png") || "export.png");
+    return true;
+  }
 
-  if (!hasValidExtension) {
-    // Remove any existing extension and add .png
+  // Determine default filename
+  let defaultName = state.filename || "export.png";
+  if (!defaultName.toLowerCase().endsWith(".png")) {
     defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".png";
   }
 
-  // Order filters so the matching format is first (selected by default)
-  const isJpeg = lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg");
-  const filters = isJpeg
-    ? [
-        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
-        { name: "PNG Image", extensions: ["png"] },
-        { name: "All Files", extensions: ["*"] },
-      ]
-    : [
-        { name: "PNG Image", extensions: ["png"] },
-        { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
-        { name: "All Files", extensions: ["*"] },
-      ];
-
   const filePath = await bridge.showSaveDialog({
-    title: "Save Image As",
+    title: "Export as PNG",
     defaultName,
-    filters,
+    filters: [
+      { name: "PNG Image", extensions: ["png"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
   });
 
   if (!filePath) return false; // User cancelled
 
   showSpinner();
   try {
-    // Get image data with appropriate format
-    const ext = bridge.getExtension(filePath);
-    let imageData;
-    if (ext === "jpg" || ext === "jpeg") {
-      imageData = modules.canvasManager.toDataURL("image/jpeg", 0.92);
-    } else {
-      imageData = modules.canvasManager.toDataURL("image/png");
-    }
-
+    const imageData = modules.canvasManager.toDataURL("image/png");
     await bridge.saveImage(filePath, imageData);
 
-    // Update state
-    state.filename = bridge.getFilename(filePath);
-    state.currentFilePath = filePath;
-    state.hasUnsavedChanges = false;
-
-    showToast(`Saved: ${state.filename}`, "success");
-    if (updateStatusBar) updateStatusBar();
+    showToast(`Exported: ${bridge.getFilename(filePath)}`, "success");
     return true;
   } catch (err) {
-    console.error("Save as error:", err);
-    await showAlertModal("Save Failed", `Could not save the file.\n\nError: ${err.message}`, "error");
+    console.error("Export PNG error:", err);
+    await showAlertModal("Export Failed", `Could not export the file.\n\nError: ${err.message}`, "error");
+    return false;
+  } finally {
+    hideSpinner();
+  }
+}
+
+/**
+ * Export as JPG image using native dialog
+ * @param {Function} [updateStatusBar] - Optional callback to update status bar
+ * @param {number} [quality=0.92] - JPEG quality (0-1)
+ * @returns {Promise<boolean>} True if exported successfully, false if cancelled or error
+ */
+export async function exportAsJpg(updateStatusBar, quality = 0.92) {
+  if (!modules.layerManager.hasLayers()) {
+    await showAlertModal("Nothing to Export", "Open or create an image first before exporting.", "info");
+    return false;
+  }
+
+  if (!bridge.isTauri()) {
+    // Fallback: download via browser
+    const imageData = modules.canvasManager.toDataURL("image/jpeg", quality);
+    const { downloadImage } = await import("./utils/export.js");
+    downloadImage(imageData, state.filename?.replace(/\.[^/.]+$/, ".jpg") || "export.jpg");
+    return true;
+  }
+
+  // Determine default filename
+  let defaultName = state.filename || "export.jpg";
+  if (!defaultName.toLowerCase().endsWith(".jpg") && !defaultName.toLowerCase().endsWith(".jpeg")) {
+    defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".jpg";
+  }
+
+  const filePath = await bridge.showSaveDialog({
+    title: "Export as JPG",
+    defaultName,
+    filters: [
+      { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+
+  if (!filePath) return false; // User cancelled
+
+  showSpinner();
+  try {
+    const imageData = modules.canvasManager.toDataURL("image/jpeg", quality);
+    await bridge.saveImage(filePath, imageData);
+
+    showToast(`Exported: ${bridge.getFilename(filePath)}`, "success");
+    return true;
+  } catch (err) {
+    console.error("Export JPG error:", err);
+    await showAlertModal("Export Failed", `Could not export the file.\n\nError: ${err.message}`, "error");
     return false;
   } finally {
     hideSpinner();
@@ -453,14 +511,27 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
   }
 
   try {
+    // Get library path for default save location
+    const { getLibraryPath } = await import("./utils/config.js");
+    const libraryBasePath = getLibraryPath();
+
+    // Generate year/month subfolder path
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const defaultPath = libraryBasePath ? `${libraryBasePath}/${yearMonth}` : null;
+
     // Determine default filename - use suggested name, fall back to state, then default
+    // Strip any existing timestamp suffix for clean filenames
     let defaultName = options.suggestedFilename || state.filename || "screenshot.ssce";
     if (!defaultName.toLowerCase().endsWith(".ssce")) {
       defaultName = defaultName.replace(/\.[^/.]+$/, "") + ".ssce";
     }
+    // Remove timestamp suffix if present (pattern: _YYYYMMDD_HHMMSS)
+    defaultName = defaultName.replace(/_\d{8}_\d{6}\.ssce$/, ".ssce");
 
     const filePath = await bridge.showSaveDialog({
       title: "Save SSCE File",
+      defaultPath,
       defaultName,
       filters: [
         { name: "SSCE Files", extensions: ["ssce"] },
@@ -483,12 +554,25 @@ export async function saveAsSsce(options = {}, updateStatusBar) {
     };
     const snapshots = state.snapshots || [];
 
-    const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots });
+    // Get canvas for thumbnail generation (v1.1)
+    const canvas = modules.canvasManager.getCanvas();
+    const filename = bridge.getFilename(filePath);
+
+    const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots, canvas, filename });
 
     await bridge.saveSsce(filePath, ssceData);
 
+    // Track in recent files
+    try {
+      const parsed = JSON.parse(ssceData);
+      const snapshotCount = parsed.snapshots?.length || 0;
+      addRecentFile(filePath, parsed.thumbnail, snapshotCount);
+    } catch (e) {
+      addRecentFile(filePath, null, snapshots.length);
+    }
+
     // Update state
-    state.filename = bridge.getFilename(filePath);
+    state.filename = filename;
     state.currentFilePath = filePath;
     state.hasUnsavedChanges = false;
     state.frontMatter = frontMatter;

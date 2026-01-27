@@ -213,7 +213,10 @@ export async function showSaveDialog(options = {}) {
 
     // Build default path from directory + filename
     let defaultPath = options.defaultPath;
-    if (!defaultPath) {
+    if (defaultPath && options.defaultName) {
+      // Both path and name provided - combine them
+      defaultPath = `${defaultPath}/${options.defaultName}`;
+    } else if (!defaultPath) {
       const dir = await getSaveDirectory();
       defaultPath = options.defaultName ? `${dir}/${options.defaultName}` : dir;
     }

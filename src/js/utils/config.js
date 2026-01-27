@@ -103,6 +103,14 @@ export function getDefaultImageSavePath() {
 }
 
 /**
+ * Get the library path from config
+ * @returns {string|null} Path or null if not set
+ */
+export function getLibraryPath() {
+  return defaults?.paths?.library || null;
+}
+
+/**
  * Get autosave configuration
  * @returns {Object} Autosave config with enabled, inactivitySeconds, tempDirectory, snapshotReminderEdits
  */

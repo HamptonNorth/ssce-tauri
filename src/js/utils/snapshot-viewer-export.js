@@ -8,6 +8,9 @@
 
 import { state } from "../state.js";
 import { getSnapshots, getFrontMatter } from "../ssce-file-ops.js";
+import * as bridge from "../tauri-bridge.js";
+import { showSpinner, hideSpinner } from "./spinner.js";
+import { showToast } from "./toast.js";
 
 /**
  * Generate static HTML viewer for snapshots (no JavaScript)
@@ -170,13 +173,45 @@ export function generateExportFilename() {
 }
 
 /**
- * Download the static HTML as a file
- * @returns {string} The filename that was downloaded
+ * Export the static HTML as a file using native dialog
+ * @returns {Promise<string|null>} The filename that was saved, or null if cancelled
  */
-export function downloadSnapshotHtml() {
+export async function downloadSnapshotHtml() {
   const html = generateStaticHtml();
   const filename = generateExportFilename();
 
+  // Use native Tauri dialog if available
+  if (bridge.isTauri()) {
+    const filePath = await bridge.showSaveDialog({
+      title: "Export Snapshot Viewer",
+      defaultName: filename,
+      filters: [
+        { name: "HTML Files", extensions: ["html"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    });
+
+    if (!filePath) return null; // User cancelled
+
+    showSpinner();
+    try {
+      // Write HTML content to file
+      const invoke = window.__TAURI__?.core?.invoke;
+      if (invoke) {
+        await invoke("save_text_file", { path: filePath, content: html });
+      }
+      hideSpinner();
+      showToast(`Exported: ${bridge.getFilename(filePath)}`, "success");
+      return bridge.getFilename(filePath);
+    } catch (err) {
+      hideSpinner();
+      console.error("Export snapshot viewer error:", err);
+      showToast(`Export failed: ${err.message}`, "error");
+      return null;
+    }
+  }
+
+  // Fallback: browser download
   const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
 

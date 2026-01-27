@@ -311,10 +311,52 @@ Visual feedback during file open/save:
 
 ---
 
-### Phase 4: Auto-Updates
+### Phase 4: Code Review & Refactor
+**Goal**: Review codebase health before release
+
+#### 4.1 Review JavaScript architecture
+- Assess module organization and dependencies
+- Identify code duplication or overly complex functions
+- Check for consistent error handling patterns
+- Review state management (state.js) for bloat or tight coupling
+
+#### 4.2 Review Rust backend
+- Check command organization in main.rs
+- Assess error handling consistency
+- Identify any security concerns
+
+#### 4.3 Refactor if needed
+- Only refactor if significant issues found
+- Keep changes minimal and focused
+- Ensure all tests pass after changes
+
+---
+
+### Phase 5: Release v1.2.0
+**Goal**: Version bump and release
+
+#### 5.1 Bump version to 1.2.0
+- `src-tauri/Cargo.toml`
+- `src-tauri/tauri.conf.json`
+- `CLAUDE.md` (this file)
+- `package.json` (if exists)
+- User documentation version references
+
+#### 5.2 GitHub Actions release
+- Trigger release workflow
+- Test Linux .deb/.AppImage
+- Test Windows .msi/.exe
+
+---
+
+## Implementation Plan - v2.0.0 Release (Future)
+
+*Deferred from v1.2.0 to allow stability testing*
+
+### Phase 1: Auto-Updates
 **Goal**: Seamless update delivery via GitHub Releases
 
-#### 4.1 Implement tauri-plugin-updater
+#### 1.1 Implement tauri-plugin-updater
 - Generate signing keypair
 - Configure update manifest for GitHub Releases
 - Check frequency: Once per week on startup
@@ -328,53 +370,14 @@ Visual feedback during file open/save:
 
 ---
 
-### Phase 5: Flatpak Distribution
+### Phase 2: Flatpak Distribution
 **Goal**: Linux distribution via Flatpak
 
-#### 5.1 Create Flatpak manifest
+#### 2.1 Create Flatpak manifest
 - Create `flatpak/org.ssce.desktop.yml` manifest
 - Configure sandbox permissions (file access, clipboard, tray)
 - Build and test locally
 - **Test**: Install via Flatpak → verify all features work (file dialogs, clipboard, tray)
-
----
-
-### Phase 6: Code Review & Refactor
-**Goal**: Review codebase health before release
-
-#### 6.1 Review JavaScript architecture
-- Assess module organization and dependencies
-- Identify code duplication or overly complex functions
-- Check for consistent error handling patterns
-- Review state management (state.js) for bloat or tight coupling
-
-#### 6.2 Review Rust backend
-- Check command organization in main.rs
-- Assess error handling consistency
-- Identify any security concerns
-
-#### 6.3 Refactor if needed
-- Only refactor if significant issues found
-- Keep changes minimal and focused
-- Ensure all tests pass after changes
-
----
-
-### Phase 7: Release v1.2.0
-**Goal**: Version bump and release
-
-#### 7.1 Bump version to 1.2.0
-- `src-tauri/Cargo.toml`
-- `src-tauri/tauri.conf.json`
-- `CLAUDE.md` (this file)
-- `package.json` (if exists)
-- User documentation version references
-
-#### 7.2 GitHub Actions release
-- Trigger release workflow
-- Test Linux .deb/.AppImage
-- Test Windows .msi/.exe
-- Test Flatpak (if added to CI)
 
 ---
 

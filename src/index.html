@@ -64,6 +64,12 @@
                         <span>Save As...</span>
                         <span class="ml-auto text-xs text-gray-400">Ctrl+Shift+S</span>
                     </button>
+                    <button id="menu-recent-files" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Recent Files...</span>
+                    </button>
                     <div class="border-t border-gray-600 my-1"></div>
                     <button id="menu-paste" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,6 +138,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span>Export As PNG...</span>
+                        <span class="ml-auto text-xs text-gray-400">Ctrl+E</span>
+                    </button>
+                    <button id="menu-export-jpg" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Export As JPG...</span>
                     </button>
                     <button id="menu-export-snapshot-viewer" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -941,6 +954,35 @@
                 <span>Delete</span>
             </button>
         </div>
+
+        <!-- Recent Files Dialog -->
+        <dialog id="dialog-recent-files" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 w-[95vw] max-w-[1800px]">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">Recent Files</h2>
+                <button id="recent-files-close" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div id="recent-files-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4 max-h-[70vh] overflow-y-auto p-1">
+                <!-- Thumbnails will be inserted here -->
+            </div>
+
+            <div id="recent-files-empty" class="hidden text-center py-12 text-gray-400">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <p>No recent files</p>
+                <p class="text-sm mt-1">Files you open or save will appear here</p>
+            </div>
+
+            <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-600">
+                <button id="recent-files-clear" class="px-3 py-1.5 text-sm text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded">Clear History</button>
+                <button id="recent-files-cancel" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">Close</button>
+            </div>
+        </dialog>
 
         <!-- Settings Editor Dialog -->
         <dialog id="dialog-settings" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[600px] max-w-[800px]">

@@ -165,6 +165,87 @@ fn save_ssce(path: String, data: String) -> Result<(), String> {
     fs::write(&path, data).map_err(|e| format!("Failed to write file: {}", e))
 }
 
+/// Save text content to a file (for HTML export, etc.)
+#[tauri::command]
+fn save_text_file(path: String, content: String) -> Result<(), String> {
+    // Create parent directories if they don't exist
+    if let Some(parent) = Path::new(&path).parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
+    }
+
+    fs::write(&path, content).map_err(|e| format!("Failed to write file: {}", e))
+}
+
+/// Metadata extracted from a .ssce file
+#[derive(Serialize)]
+struct SsceMetadata {
+    thumbnail: Option<String>,
+    snapshot_count: u32,
+}
+
+/// Extract thumbnail and snapshot count from a .ssce file
+#[tauri::command]
+fn get_ssce_metadata(path: String) -> Result<SsceMetadata, String> {
+    let file_path = Path::new(&path);
+
+    if !file_path.exists() {
+        return Ok(SsceMetadata {
+            thumbnail: None,
+            snapshot_count: 0,
+        });
+    }
+
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+
+    // Parse JSON
+    let json: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    // Get thumbnail field if it exists
+    let thumbnail = json.get("thumbnail")
+        .and_then(|t| t.as_str())
+        .map(|s| s.to_string());
+
+    // Get snapshot count
+    let snapshot_count = json.get("snapshots")
+        .and_then(|s| s.as_array())
+        .map(|arr| arr.len() as u32)
+        .unwrap_or(0);
+
+    Ok(SsceMetadata {
+        thumbnail,
+        snapshot_count,
+    })
+}
+
+/// Extract thumbnail from a .ssce file (legacy, kept for compatibility)
+/// Returns the thumbnail data URL if present, or null if not found
+#[tauri::command]
+fn get_ssce_thumbnail(path: String) -> Result<Option<String>, String> {
+    let file_path = Path::new(&path);
+
+    if !file_path.exists() {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+
+    // Parse JSON and extract thumbnail field
+    let json: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    // Get thumbnail field if it exists
+    if let Some(thumbnail) = json.get("thumbnail") {
+        if let Some(thumb_str) = thumbnail.as_str() {
+            return Ok(Some(thumb_str.to_string()));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Check if a file exists
 #[tauri::command]
 fn file_exists(path: String) -> bool {
@@ -586,6 +667,9 @@ fn main() {
             save_image,
             load_ssce,
             save_ssce,
+            save_text_file,
+            get_ssce_thumbnail,
+            get_ssce_metadata,
             file_exists,
             save_autosave,
             delete_autosave,

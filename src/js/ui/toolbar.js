@@ -48,6 +48,10 @@ export function initToolbarEvents(handlers) {
     fileMenu.classList.add("hidden");
     handleSaveAs();
   });
+  document.getElementById("menu-recent-files").addEventListener("click", () => {
+    fileMenu.classList.add("hidden");
+    handlers.handleRecentFiles();
+  });
   document.getElementById("menu-paste").addEventListener("click", () => {
     fileMenu.classList.add("hidden");
     handlers.handlePasteFromClipboard();
@@ -89,10 +93,15 @@ export function initToolbarEvents(handlers) {
     await useSaveToDownloads();
   });
 
-  // .ssce file format menu items
+  // Export menu items
   document.getElementById("menu-export-png").addEventListener("click", () => {
     fileMenu.classList.add("hidden");
     handlers.handleExportPng();
+  });
+
+  document.getElementById("menu-export-jpg").addEventListener("click", () => {
+    fileMenu.classList.add("hidden");
+    handlers.handleExportJpg();
   });
 
   document.getElementById("menu-export-snapshot-viewer").addEventListener("click", () => {

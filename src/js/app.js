@@ -22,7 +22,7 @@ import { CutTool } from "./tools/cut.js";
 import { FadeEdgesTool } from "./tools/fade-edges.js";
 import { BordersTool } from "./tools/borders.js";
 import { loadColours } from "./utils/colours.js";
-import { printImage, downloadImage } from "./utils/export.js";
+import { printImage } from "./utils/export.js";
 import { showToast } from "./utils/toast.js";
 import { state, modules, loadPersistedState, persistState } from "./state.js";
 import { initDragAndDrop } from "./drag-drop.js";
@@ -32,7 +32,8 @@ import { initToolbarEvents, setActiveTool } from "./ui/toolbar.js";
 import { initKeyboardShortcuts } from "./keyboard.js";
 import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, updateUndoRedoButtons, setDirectoryConfig, saveAsSsce } from "./file-operations.js";
 import * as tauriBridge from "./tauri-bridge.js";
-import { initDialogs, showSaveOptionsDialog, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
+import { initDialogs, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
+import { initRecentFilesDialog, showRecentFilesDialog } from "./ui/dialogs/recent-files-dialog.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
 import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime, getAutosaveConfig } from "./utils/config.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
@@ -174,7 +175,9 @@ async function init() {
     handleRedo,
     showResizeDialog,
     handleFileSelect,
-    handleExportPng: () => handleExportPng(updateStatusBar),
+    handleExportPng: () => handleExportPngCommand(updateStatusBar),
+    handleExportJpg: () => handleExportJpgCommand(updateStatusBar),
+    handleRecentFiles: () => showRecentFilesDialog(),
     handleEditFileInfo,
     handleSnapshot: () => handleSnapshot(false),
     handleViewSnapshots: () => showViewSnapshotsDialog(),
@@ -186,6 +189,7 @@ async function init() {
     handleSave: () => handleSaveWithSsceSupport(updateStatusBar),
     handleSaveAs: () => handleSaveAsWithSsceSupport(updateStatusBar),
     handlePrint: () => handlePrint(showPrintDialog),
+    handleExportPng: () => handleExportPngCommand(updateStatusBar),
     handleUndo,
     handleRedo,
     handleCopyToClipboard,
@@ -202,6 +206,13 @@ async function init() {
     updateUndoRedoButtons,
     getSaveDirectory,
     getAutoIncrementedFilename,
+  });
+
+  // Initialize recent files dialog with file open handler
+  initRecentFilesDialog(async (filePath) => {
+    // Load the selected file
+    const { loadFileFromPath } = await import("./file-operations.js");
+    await loadFileFromPath(filePath, updateStatusBar);
   });
 
   // Check for recovery files from previous crash
@@ -482,221 +493,37 @@ function toggleSaveToDefault() {
 }
 
 /**
- * Handle save with .ssce support
- * If source was .ssce, saves back to .ssce; otherwise shows unified save dialog
+ * Handle save - always saves as .ssce format
+ * Uses file-operations.js handleSave which saves directly to .ssce
  */
 async function handleSaveWithSsceSupport(updateStatusBar) {
-  if (!modules.layerManager.hasLayers()) {
-    const { showAlertModal } = await import("./ui/dialogs/index.js");
-    await showAlertModal("Nothing to Save", "Open or create an image first before saving.", "info");
-    return;
-  }
-
-  if (state.sourceFormat === "ssce") {
-    // Source was .ssce - save back to .ssce directly
-    await handleSaveSsce(updateStatusBar);
-  } else {
-    // Source was image - show unified save dialog
-    await handleUnifiedSave(updateStatusBar, false);
-  }
+  // handleSave now always saves as .ssce
+  await handleSave(null, updateStatusBar);
 }
 
 /**
- * Handle save as with .ssce support
- * Shows unified save dialog with format choice and .ssce retention option
+ * Handle save as - always saves as .ssce format
+ * Uses file-operations.js handleSaveAs which saves as new .ssce file
  */
 async function handleSaveAsWithSsceSupport(updateStatusBar) {
-  if (!modules.layerManager.hasLayers()) {
-    const { showAlertModal } = await import("./ui/dialogs/index.js");
-    await showAlertModal("Nothing to Save", "Open or create an image first before saving.", "info");
-    return;
-  }
-
-  if (state.sourceFormat === "ssce") {
-    // Source was .ssce - save as new .ssce file
-    await handleSaveAsSsce(updateStatusBar);
-  } else {
-    // Source was image - show unified save dialog (always as new file)
-    await handleUnifiedSave(updateStatusBar, true);
-  }
-}
-
-/**
- * Handle unified save flow for image sources
- * Shows save options dialog and processes the save
- * @param {Function} updateStatusBar - Status bar update callback
- * @param {boolean} forceNewFile - If true, always prompts for new filename (Save As behavior)
- */
-async function handleUnifiedSave(updateStatusBar, forceNewFile = false) {
-  // Determine default filename
-  const currentFilename = state.filename || "screenshot.png";
-
-  // Detect format from current filename
-  let defaultFormat = "png";
-  if (currentFilename.toLowerCase().endsWith(".jpg") || currentFilename.toLowerCase().endsWith(".jpeg")) {
-    defaultFormat = "jpg";
-  }
-
-  // Auto-tick keepSsce if snapshots exist (user can untick if they want to discard)
-  const hasSnapshots = getSnapshots().length > 0;
-
-  // Show unified save dialog
-  const options = await showSaveOptionsDialog({
-    filename: currentFilename,
-    format: defaultFormat,
-    keepSsce: hasSnapshots,
-  });
-
-  if (!options) {
-    return; // User cancelled
-  }
-
-  // Build filename with extension
-  const extension = options.format === "jpg" ? ".jpg" : ".png";
-  let filename = options.filename + extension;
-
-  // Use native save dialog in Tauri
-  if (tauriBridge.isTauri()) {
-    const saved = await handleSaveAs(updateStatusBar, filename);
-
-    // If user cancelled the image save, don't proceed with .ssce save
-    if (!saved) {
-      return;
-    }
-
-    // If keepSsce is checked, also save .ssce file
-    if (options.keepSsce && state.currentFilePath) {
-      // Default title from filename if not already set
-      let defaultTitle = "";
-      if (state.frontMatter?.title) {
-        defaultTitle = state.frontMatter.title;
-      } else if (state.filename) {
-        defaultTitle = state.filename.replace(/\.[^/.]+$/, "");
-      }
-
-      const frontMatter = await showFrontMatterDialog({
-        title: "File Information",
-        subtitle: "Also saving .ssce to preserve your snapshots.",
-        frontMatter: {
-          ...state.frontMatter,
-          title: defaultTitle,
-        },
-        mode: "save",
-      });
-
-      if (frontMatter) {
-        const ssceResult = await saveAsSsce({ frontMatter }, updateStatusBar);
-        if (ssceResult.success) {
-          setFrontMatter(frontMatter);
-        }
-      }
-    }
-    return;
-  }
-
-  // Fallback for non-Tauri: download via browser
-  const imageData = modules.canvasManager.toDataURL();
-  downloadImage(imageData, filename);
-  state.filename = filename;
-  state.hasUnsavedChanges = false;
-  showToast(`Downloaded: ${filename}`, "success");
-  updateStatusBar();
-}
-
-/**
- * Save current session as .ssce file
- */
-async function handleSaveSsce(updateStatusBar) {
-  // If no filename or filename is PNG, prompt for new name
-  const currentFilename = state.filename || "";
-  const isSsceFilename = currentFilename.toLowerCase().endsWith(".ssce");
-
-  if (!isSsceFilename) {
-    // Need to get a new filename
-    await handleSaveAsSsce(updateStatusBar);
-    return;
-  }
-
-  // Save to existing .ssce file using Tauri bridge
-  if (tauriBridge.isTauri() && state.currentFilePath) {
-    try {
-      const { serialize } = await import("./utils/ssce-format.js");
-      const layers = modules.layerManager.getLayers();
-      const canvasSize = modules.canvasManager.getSize();
-      const frontMatter = {
-        ...(state.frontMatter || {}),
-        modified: new Date().toISOString(),
-      };
-      const snapshots = state.snapshots || [];
-
-      const ssceData = serialize({ layers, canvasSize, frontMatter, snapshots });
-      await tauriBridge.saveSsce(state.currentFilePath, ssceData);
-
-      state.hasUnsavedChanges = false;
-      state.frontMatter = frontMatter;
-      showToast(`Saved: ${state.filename}`, "success");
-      updateStatusBar();
-    } catch (err) {
-      showToast(`Save failed: ${err.message}`, "error");
-    }
-  } else {
-    // No existing path, do save as
-    await handleSaveAsSsce(updateStatusBar);
-  }
-}
-
-/**
- * Save as new .ssce file (prompts for filename via front matter dialog)
- */
-async function handleSaveAsSsce(updateStatusBar) {
-  // Determine default title: existing frontMatter > filename without extension > blank
-  let defaultTitle = "";
-  if (state.frontMatter?.title) {
-    defaultTitle = state.frontMatter.title;
-  } else if (state.filename) {
-    // Strip extension from filename
-    defaultTitle = state.filename.replace(/\.[^/.]+$/, "");
-  }
-
-  // Show front matter dialog
-  const frontMatter = await showFrontMatterDialog({
-    title: "Save as .ssce",
-    frontMatter: {
-      ...state.frontMatter,
-      title: defaultTitle,
-    },
-    mode: "save",
-  });
-
-  if (!frontMatter) {
-    return; // User cancelled
-  }
-
-  // Use frontMatter title as suggested filename if available, otherwise use current filename
-  const suggestedFilename = frontMatter.title || state.filename;
-
-  // Use the saveAsSsce function from file-operations
-  const result = await saveAsSsce({ frontMatter, suggestedFilename }, updateStatusBar);
-
-  if (result.success) {
-    setFrontMatter(frontMatter);
-  } else if (result.error !== "Cancelled") {
-    showToast(`Save failed: ${result.error}`, "error");
-  }
+  // handleSaveAs now always saves as .ssce
+  await handleSaveAs(updateStatusBar);
 }
 
 /**
  * Export current canvas as PNG (flattened, no layers)
  */
-async function handleExportPng(updateStatusBar) {
-  if (!modules.layerManager.hasLayers()) {
-    const { showAlertModal } = await import("./ui/dialogs/index.js");
-    await showAlertModal("Nothing to Export", "Open or create an image first before exporting.", "info");
-    return;
-  }
+async function handleExportPngCommand(updateStatusBar) {
+  const { exportAsPng } = await import("./file-operations.js");
+  await exportAsPng(updateStatusBar);
+}
 
-  // Use the standard Save As functionality for PNG export
-  handleSaveAs(updateStatusBar);
+/**
+ * Export current canvas as JPG (flattened, no layers)
+ */
+async function handleExportJpgCommand(updateStatusBar) {
+  const { exportAsJpg } = await import("./file-operations.js");
+  await exportAsJpg(updateStatusBar);
 }
 
 /**

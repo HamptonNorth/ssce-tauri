@@ -1,7 +1,8 @@
 {
   "paths": {
     "defaultImageLoad": "~/Pictures/ssce",
-    "defaultImageSave": "~/Pictures/ssce-out"
+    "defaultImageSave": "~/Pictures/ssce-out",
+    "library": "~/Pictures/ssce-library"
   },
   "tools": {
     "arrow": {
@@ -102,6 +103,9 @@
     "inactivitySeconds": 30,
     "tempDirectory": ".ssce-temp",
     "snapshotReminderEdits": 10
+  },
+  "recentFiles": {
+    "maxCount": 20
   },
   "toast": {
     "durationMs": 3000,

@@ -2,13 +2,21 @@
  * SSCE File Format - Serialization and Deserialization
  *
  * Handles conversion between in-memory layer structure and .ssce JSON file format.
- * .ssce files preserve layers, canvas dimensions, front matter, and snapshots.
+ * .ssce files preserve layers, canvas dimensions, front matter, snapshots,
+ * embedded thumbnail, and auto-generated keywords for search.
  *
- * File format version: 1.0
+ * File format version: 1.1
+ *
+ * v1.1 additions:
+ * - thumbnail: Small preview image (~150x150) for file browsers
+ * - keywords: Auto-generated search terms from metadata
  */
 
 // Current format version
-const FORMAT_VERSION = "1.0";
+const FORMAT_VERSION = "1.1";
+
+// Thumbnail settings
+const THUMBNAIL_MAX_SIZE = 150;
 
 /**
  * Serialize current session state to .ssce JSON format
@@ -17,9 +25,11 @@ const FORMAT_VERSION = "1.0";
  * @param {Object} options.canvasSize - {width, height} from CanvasManager
  * @param {Object} options.frontMatter - Metadata (title, summary, initials, dates)
  * @param {Array} options.snapshots - Array of snapshot objects
+ * @param {HTMLCanvasElement} [options.canvas] - Canvas element for thumbnail generation
+ * @param {string} [options.filename] - Filename for keyword extraction
  * @returns {string} JSON string ready to save
  */
-export function serialize({ layers, canvasSize, frontMatter = {}, snapshots = [] }) {
+export function serialize({ layers, canvasSize, frontMatter = {}, snapshots = [], canvas = null, filename = "" }) {
   const now = new Date().toISOString();
 
   // Build front matter with defaults
@@ -34,9 +44,17 @@ export function serialize({ layers, canvasSize, frontMatter = {}, snapshots = []
   // Serialize layers (convert image elements to base64)
   const serializedLayers = layers.map((layer) => serializeLayer(layer));
 
+  // Generate thumbnail if canvas provided
+  const thumbnail = canvas ? generateThumbnail(canvas) : null;
+
+  // Extract keywords for search
+  const keywords = extractKeywords({ filename, frontMatter: fm, snapshots });
+
   // Build .ssce structure
   const ssceData = {
     version: FORMAT_VERSION,
+    thumbnail,
+    keywords,
     frontMatter: fm,
     canvas: {
       width: canvasSize.width,
@@ -242,4 +260,104 @@ export function getFileExtension() {
  */
 export function isSsceFile(filename) {
   return filename.toLowerCase().endsWith(".ssce");
+}
+
+// ============================================================================
+// Thumbnail and Keyword Generation (v1.1)
+// ============================================================================
+
+/**
+ * Generate a thumbnail from a canvas element
+ * @param {HTMLCanvasElement} canvas - Source canvas
+ * @param {number} [maxSize=THUMBNAIL_MAX_SIZE] - Maximum dimension (width or height)
+ * @returns {string} Data URL of thumbnail PNG
+ */
+export function generateThumbnail(canvas, maxSize = THUMBNAIL_MAX_SIZE) {
+  const { width, height } = canvas;
+
+  // Calculate thumbnail dimensions maintaining aspect ratio
+  let thumbWidth, thumbHeight;
+  if (width > height) {
+    thumbWidth = Math.min(width, maxSize);
+    thumbHeight = Math.round((height / width) * thumbWidth);
+  } else {
+    thumbHeight = Math.min(height, maxSize);
+    thumbWidth = Math.round((width / height) * thumbHeight);
+  }
+
+  // Create thumbnail canvas
+  const thumbCanvas = document.createElement("canvas");
+  thumbCanvas.width = thumbWidth;
+  thumbCanvas.height = thumbHeight;
+
+  const ctx = thumbCanvas.getContext("2d");
+
+  // Use high-quality scaling
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  // Draw scaled image
+  ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
+
+  return thumbCanvas.toDataURL("image/png");
+}
+
+/**
+ * Extract keywords from file metadata for search indexing
+ * @param {Object} options
+ * @param {string} options.filename - Filename (without extension)
+ * @param {Object} options.frontMatter - Front matter metadata
+ * @param {Array} options.snapshots - Array of snapshot objects
+ * @returns {string[]} Array of lowercase keywords
+ */
+export function extractKeywords({ filename = "", frontMatter = {}, snapshots = [] }) {
+  const words = new Set();
+
+  // Helper to extract words from a string
+  const addWords = (text) => {
+    if (!text || typeof text !== "string") return;
+    // Split on common separators and filter
+    const extracted = text
+      .toLowerCase()
+      .split(/[\s_\-.,;:!?()[\]{}'"]+/)
+      .filter((w) => w.length >= 2 && w.length <= 30);
+    extracted.forEach((w) => words.add(w));
+  };
+
+  // Extract from filename (remove .ssce extension if present)
+  const baseName = filename.replace(/\.ssce$/i, "");
+  addWords(baseName);
+
+  // Extract from front matter
+  addWords(frontMatter.title);
+  addWords(frontMatter.summary);
+
+  // Extract from snapshot titles and summaries
+  if (Array.isArray(snapshots)) {
+    snapshots.forEach((snap) => {
+      if (snap.frontMatter) {
+        addWords(snap.frontMatter.title);
+        addWords(snap.frontMatter.summary);
+      }
+    });
+  }
+
+  // Add date components from modified date
+  if (frontMatter.modified) {
+    try {
+      const date = new Date(frontMatter.modified);
+      if (!isNaN(date.getTime())) {
+        words.add(date.getFullYear().toString());
+        words.add(date.toLocaleString("en-US", { month: "long" }).toLowerCase());
+        words.add(date.toLocaleString("en-US", { month: "short" }).toLowerCase());
+      }
+    } catch {
+      // Ignore date parsing errors
+    }
+  }
+
+  // Filter out common stop words
+  const stopWords = new Set(["the", "and", "for", "with", "this", "that", "from", "are", "was", "were", "been", "have", "has", "had", "not", "but", "what", "all", "when", "who", "which", "their", "there", "would", "could", "should"]);
+
+  return Array.from(words).filter((w) => !stopWords.has(w));
 }
