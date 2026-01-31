@@ -5,7 +5,8 @@
  */
 
 import { DragHandleSet, HandleType } from "../utils/drag-handles.js";
-import { getTextSize, getTextLineHeight } from "../utils/config.js";
+import { getTextSize, getTextLineHeight, getSmartGuidesConfig } from "../utils/config.js";
+import { getLayerBounds, getCombinedBounds, getAlignmentCandidates, detectAlignments, renderGuides } from "../utils/smart-guides.js";
 
 export class SelectTool {
   constructor(canvasManager, layerManager) {
@@ -17,6 +18,10 @@ export class SelectTool {
     this.dragStartX = 0;
     this.dragStartY = 0;
     this.layerStartPositions = []; // Store start positions for all selected layers
+
+    // Smart guides state
+    this.guidesState = null;
+    this.alignmentCandidates = null;
 
     // Drag handles for arrow/line endpoints (only works with single selection)
     this.lineHandles = new DragHandleSet({
@@ -214,6 +219,14 @@ export class SelectTool {
           return {};
         });
 
+        // Cache smart guide candidates for this drag
+        const guidesConfig = getSmartGuidesConfig();
+        if (guidesConfig.enabled) {
+          const ctx = this.canvasManager.ctx;
+          const canvas = this.canvasManager.canvas;
+          this.alignmentCandidates = getAlignmentCandidates(layers, this.selectedLayerIndices, ctx, canvas.width, canvas.height);
+        }
+
         this.canvasManager.render();
         this.renderSelection();
       }
@@ -308,8 +321,47 @@ export class SelectTool {
       }
     } else {
       // Move all selected layers
-      const dx = x - this.dragStartX;
-      const dy = y - this.dragStartY;
+      let dx = x - this.dragStartX;
+      let dy = y - this.dragStartY;
+
+      // Smart guide snapping (skip if Ctrl held)
+      this.guidesState = null;
+      if (!e.ctrlKey && this.alignmentCandidates) {
+        // Compute current dragging bounds from start positions + dx/dy
+        const ctx = this.canvasManager.ctx;
+        const boundsArr = this.selectedLayerIndices
+          .map((idx, i) => {
+            const layer = layers[idx];
+            const startPos = this.layerStartPositions[i];
+            // Create a temporary shifted layer to get bounds
+            const tmpLayer = JSON.parse(JSON.stringify(layer));
+            if (tmpLayer.type === "arrow" || tmpLayer.type === "line") {
+              tmpLayer.data.startX = startPos.startX + dx;
+              tmpLayer.data.startY = startPos.startY + dy;
+              tmpLayer.data.endX = tmpLayer.data.startX + (layer.data.endX - layer.data.startX);
+              tmpLayer.data.endY = tmpLayer.data.startY + (layer.data.endY - layer.data.startY);
+            } else if (tmpLayer.type === "image") {
+              tmpLayer.data.x = startPos.x + dx;
+              tmpLayer.data.y = startPos.y + dy;
+              // Preserve image ref for dimensions
+              tmpLayer.data.image = layer.data.image;
+            } else {
+              tmpLayer.data.x = startPos.x + dx;
+              tmpLayer.data.y = startPos.y + dy;
+            }
+            return getLayerBounds(tmpLayer, ctx);
+          })
+          .filter(Boolean);
+
+        if (boundsArr.length > 0) {
+          const draggingBounds = getCombinedBounds(boundsArr);
+          const guidesConfig = getSmartGuidesConfig();
+          const result = detectAlignments(draggingBounds, this.alignmentCandidates, guidesConfig.snapThreshold);
+          dx += result.snapDx;
+          dy += result.snapDy;
+          this.guidesState = result.guides;
+        }
+      }
 
       this.selectedLayerIndices.forEach((idx, i) => {
         const layer = layers[idx];
@@ -334,6 +386,13 @@ export class SelectTool {
 
     this.canvasManager.render();
     this.renderSelection();
+
+    // Draw smart guides after selection rendering
+    if (this.guidesState && this.guidesState.length > 0) {
+      const ctx = this.canvasManager.ctx;
+      const canvas = this.canvasManager.canvas;
+      renderGuides(ctx, this.guidesState, canvas.width, canvas.height);
+    }
   }
 
   /**
@@ -349,10 +408,17 @@ export class SelectTool {
       this.activeRectHandle = null;
       this.rectOriginal = null;
 
+      // Clear smart guides
+      this.guidesState = null;
+      this.alignmentCandidates = null;
+      this.canvasManager.render();
+      this.renderSelection();
+
       // Notify app of layer change for undo/redo
+      // Skip edit count for moves — they're non-destructive and shouldn't trigger snapshot reminders
       import("../app.js").then((app) => {
         if (app.notifyLayerChange) {
-          app.notifyLayerChange();
+          app.notifyLayerChange({ skipEditCount: true });
         }
       });
     }

@@ -104,6 +104,11 @@
     "tempDirectory": ".ssce-temp",
     "snapshotReminderEdits": 10
   },
+  "smartGuides": {
+    "enabled": true,
+    "snapThreshold": 6,
+    "guideColor": "#FF00FF"
+  },
   "recentFiles": {
     "maxCount": 20
   },

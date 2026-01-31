@@ -405,12 +405,13 @@ let snapshotReminderThreshold = 20; // Default, updated from config
 let snapshotReminderShowing = false;
 
 // Make this available to other modules
-export function notifyLayerChange() {
+export function notifyLayerChange({ skipEditCount = false } = {}) {
   updateUndoRedoButtons();
   state.hasUnsavedChanges = true;
 
   // Track edits and prompt for snapshot periodically
-  editsSinceLastSnapshot++;
+  // Move operations pass skipEditCount=true to avoid inflating the counter
+  if (!skipEditCount) editsSinceLastSnapshot++;
 
   if (snapshotReminderThreshold > 0 && editsSinceLastSnapshot >= snapshotReminderThreshold && !snapshotReminderShowing) {
     promptSnapshotReminder();

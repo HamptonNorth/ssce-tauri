@@ -339,6 +339,20 @@ export async function savePrintConfig(printSettings) {
 }
 
 /**
+ * Get smart guides configuration
+ * @returns {Object} Smart guides config {enabled, snapThreshold, guideColor}
+ */
+export function getSmartGuidesConfig() {
+  return (
+    defaults?.smartGuides ?? {
+      enabled: true,
+      snapThreshold: 6,
+      guideColor: "#FF00FF",
+    }
+  );
+}
+
+/**
  * Get toast duration for non-error messages
  * @returns {number} Duration in milliseconds
  */
