@@ -139,6 +139,13 @@ Use to select, move, and edit existing annotations.
 - All selected items move together when dragged
 - Press Delete to remove all selected items
 
+**Smart Guides (Alignment Snapping):**
+- When dragging objects, magenta dashed lines appear when edges or centres align with other objects or the canvas centre
+- Objects snap to alignment automatically (threshold: 6px)
+- Hold Ctrl while dragging to disable snapping temporarily
+- Works with multi-select (uses combined bounding box)
+- Configure via Settings JSON: `smartGuides.enabled`, `snapThreshold`, `guideColor`
+
 **Right-Click Menu:**
 - Right-click any selected item for quick actions:
   - Bring to Front / Send to Back

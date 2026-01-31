@@ -444,6 +444,79 @@ Pre-release code quality pass.
 
 ---
 
+## 12. v1.3.0: Bulk Export, Smart Guides, Print Positioning, macOS Build
+
+### Session Date: January 2026
+
+### Implementation Summary:
+
+**Phase 1: Testing Foundation**
+Established testing infrastructure with Bun unit tests and Playwright E2E tests.
+
+- Created `bunfig.toml` with test configuration
+- Unit tests for colours, ssce-format, export utilities
+- Playwright smoke tests (app loads, canvas renders)
+- GitHub Actions test workflow
+
+**Phase 2: Print Positioning**
+Added image positioning options to print output.
+
+- Added `imagePosition` to print settings (`top`, `center`, `bottom`)
+- Position selector in print dialog
+- CSS flexbox alignment based on position setting
+
+**Phase 3: macOS Platform Build**
+Added macOS to GitHub Actions release workflow.
+
+- `macos-latest` runner in release.yml
+- Builds `.dmg` and `.app` artifacts
+- Code signing documentation
+
+**Phase 4: Bulk Export & Backup**
+Two-mode dialog for exporting and backing up .ssce files.
+
+- **Export mode**: Renders .ssce files to PNG/JPEG images, packages into ZIP
+- **Backup mode**: Copies raw .ssce files into ZIP archive for portable backup
+- Date-based filtering (this month, last month, custom range, month selector)
+- Auto format detection (PNG if transparent, JPEG otherwise)
+- Timestamped ZIP filenames
+- Progress bar during export
+- Rust backend: `zip` crate for archive creation, `zip_add_file`/`zip_add_path` commands
+- Keyboard shortcut: Ctrl+Shift+E
+
+**Phase 5: Smart Guides**
+Automatic alignment guides when dragging objects.
+
+- Dashed magenta lines appear when edges or centres align with other objects
+- Canvas centre alignment guides
+- Snap threshold: 6px (configurable via Settings JSON)
+- Hold Ctrl during drag to disable snapping
+- Multi-select uses combined bounding box
+- Candidates cached per drag start for performance
+- Move operations excluded from snapshot reminder counter
+
+**Files Created:**
+- `src/js/utils/smart-guides.js` - Alignment detection and guide rendering
+- `src/js/utils/bulk-export.js` - Date parsing, filtering, format detection
+- `src/js/ui/dialogs/bulk-export-dialog.js` - Two-mode export/backup dialog
+- `tests/unit/smart-guides.test.js` - 14 unit tests
+- `tests/unit/bulk-export.test.js` - 26 unit tests
+
+**Files Modified:**
+- `src-tauri/Cargo.toml` - Version 1.3.0, added `zip` crate
+- `src-tauri/tauri.conf.json` - Version 1.3.0
+- `src-tauri/src/main.rs` - ZIP commands, bulk export commands, window clamp
+- `src/js/tools/select.js` - Smart guides integration
+- `src/js/utils/config.js` - `getSmartGuidesConfig()` getter
+- `src/js/tauri-bridge.js` - ZIP and export bridge functions
+- `src/js/app.js` - Bulk export wiring, `notifyLayerChange` skip edit count
+- `src/js/keyboard.js` - Ctrl+Shift+E shortcut
+- `src/config/defaults.json` - Smart guides config, print position
+- `src/index.html` - Bulk export dialog markup
+- `CLAUDE.md` - Version 1.3.0, all phases marked complete
+
+---
+
 ## Project Statistics
 
 **Rust Backend:**
@@ -474,5 +547,5 @@ Pre-release code quality pass.
 
 ---
 
-*Version: 1.2.0*
+*Version: 1.3.0*
 *Last Updated: January 2026*
