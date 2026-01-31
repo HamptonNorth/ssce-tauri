@@ -25,9 +25,13 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
+use zip::write::SimpleFileOptions;
+use zip::ZipWriter;
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
@@ -56,6 +60,10 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 /// Wrapper to hold the database connection. The Mutex ensures thread-safe access
 /// since Tauri commands can run on different threads.
 struct DbState(Mutex<Connection>);
+
+/// Managed state for active ZIP archives being built by bulk export.
+/// Each archive is identified by a UUID string key.
+struct ZipState(Mutex<HashMap<String, Mutex<ZipWriter<fs::File>>>>);
 
 /// Initialize the SQLite database with FTS5 (Full-Text Search) support.
 /// Creates tables and triggers if they don't exist.
@@ -1136,6 +1144,266 @@ fn open_in_default_app(path: String) -> Result<(), String> {
 }
 
 // ============================================================================
+// Bulk Export Commands
+// ============================================================================
+//
+// Commands for the Bulk Export / Backup feature. Allows exporting multiple
+// .ssce files to PNG/JPEG images, optionally into a ZIP archive.
+//
+// ============================================================================
+
+/// File info returned when scanning a directory for .ssce files
+#[derive(Serialize)]
+struct SsceFileInfo {
+    name: String,
+    path: String,
+    date: Option<String>,
+    size: u64,
+}
+
+/// Summary of files per month for the date filter UI
+#[derive(Serialize)]
+struct MonthSummary {
+    month: String,
+    count: u32,
+}
+
+/// Parse a YYYY-MM-DD date from a filename
+fn parse_date_from_filename(filename: &str) -> Option<String> {
+    // Look for YYYY-MM-DD pattern
+    let bytes = filename.as_bytes();
+    for i in 0..filename.len().saturating_sub(9) {
+        if bytes.get(i + 4) == Some(&b'-')
+            && bytes.get(i + 7) == Some(&b'-')
+            && filename[i..i + 4].chars().all(|c| c.is_ascii_digit())
+            && filename[i + 5..i + 7].chars().all(|c| c.is_ascii_digit())
+            && filename[i + 8..i + 10].chars().all(|c| c.is_ascii_digit())
+        {
+            let date = &filename[i..i + 10];
+            let month: u32 = filename[i + 5..i + 7].parse().unwrap_or(0);
+            let day: u32 = filename[i + 8..i + 10].parse().unwrap_or(0);
+            if month >= 1 && month <= 12 && day >= 1 && day <= 31 {
+                return Some(date.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// List all .ssce files in a directory with parsed date metadata
+#[tauri::command]
+fn list_ssce_files(directory: String) -> Result<Vec<SsceFileInfo>, String> {
+    let dir_path = Path::new(&directory);
+
+    if !dir_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    if !dir_path.is_dir() {
+        return Err(format!("Path is not a directory: {}", directory));
+    }
+
+    let mut entries: Vec<SsceFileInfo> = Vec::new();
+
+    let read_dir = fs::read_dir(dir_path)
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    for entry in read_dir {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let metadata = entry.metadata().map_err(|e| format!("Failed to get metadata: {}", e))?;
+
+        if metadata.is_dir() {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.to_lowercase().ends_with(".ssce") {
+            continue;
+        }
+
+        let path = entry.path().to_string_lossy().to_string();
+        let date = parse_date_from_filename(&name);
+        let size = metadata.len();
+
+        entries.push(SsceFileInfo { name, path, date, size });
+    }
+
+    // Sort by name
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    Ok(entries)
+}
+
+/// Get a summary of .ssce file counts grouped by month
+#[tauri::command]
+fn get_monthly_summary(directory: String) -> Result<Vec<MonthSummary>, String> {
+    let files = list_ssce_files(directory)?;
+    let mut counts: HashMap<String, u32> = HashMap::new();
+
+    for file in &files {
+        if let Some(ref date) = file.date {
+            // Extract YYYY-MM from YYYY-MM-DD
+            let month = &date[..7];
+            *counts.entry(month.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    let mut summaries: Vec<MonthSummary> = counts
+        .into_iter()
+        .map(|(month, count)| MonthSummary { month, count })
+        .collect();
+
+    // Sort by month descending (most recent first)
+    summaries.sort_by(|a, b| b.month.cmp(&a.month));
+
+    Ok(summaries)
+}
+
+/// Save an exported image (base64 data URL) to a file path.
+/// Reuses the same pattern as save_image but explicitly for bulk export.
+#[tauri::command]
+fn save_exported_image(path: String, data: String) -> Result<(), String> {
+    // Strip data URL prefix if present
+    let base64_data = if let Some(comma_pos) = data.find(',') {
+        &data[comma_pos + 1..]
+    } else {
+        &data
+    };
+
+    let decoded = STANDARD
+        .decode(base64_data)
+        .map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+    // Create parent directories if needed
+    if let Some(parent) = Path::new(&path).parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
+    }
+
+    fs::write(&path, decoded).map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(())
+}
+
+/// Create a new ZIP archive and return an ID for subsequent operations.
+/// The archive stays open until zip_finalize is called.
+#[tauri::command]
+fn zip_create(state: State<ZipState>, output_path: String) -> Result<String, String> {
+    // Create parent directories if needed
+    if let Some(parent) = Path::new(&output_path).parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
+    }
+
+    let file = fs::File::create(&output_path)
+        .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
+
+    let writer = ZipWriter::new(file);
+    let id = format!("{}", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos());
+
+    let mut map = state.0.lock().map_err(|e| e.to_string())?;
+    map.insert(id.clone(), Mutex::new(writer));
+
+    Ok(id)
+}
+
+/// Add a file to an open ZIP archive.
+/// Data is base64-encoded (with optional data URL prefix).
+#[tauri::command]
+fn zip_add_file(state: State<ZipState>, zip_id: String, entry_name: String, base64_data: String) -> Result<(), String> {
+    // Strip data URL prefix if present
+    let raw_base64 = if let Some(comma_pos) = base64_data.find(',') {
+        &base64_data[comma_pos + 1..]
+    } else {
+        &base64_data
+    };
+
+    let decoded = STANDARD
+        .decode(raw_base64)
+        .map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+    let map = state.0.lock().map_err(|e| e.to_string())?;
+    let writer_mutex = map.get(&zip_id)
+        .ok_or_else(|| format!("ZIP archive not found: {}", zip_id))?;
+
+    let mut writer = writer_mutex.lock().map_err(|e| e.to_string())?;
+
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    writer.start_file(&entry_name, options)
+        .map_err(|e| format!("Failed to start ZIP entry: {}", e))?;
+
+    writer.write_all(&decoded)
+        .map_err(|e| format!("Failed to write ZIP entry: {}", e))?;
+
+    Ok(())
+}
+
+/// Add a file from disk to an open ZIP archive by its filesystem path.
+#[tauri::command]
+fn zip_add_path(state: State<ZipState>, zip_id: String, entry_name: String, file_path: String) -> Result<(), String> {
+    let contents = fs::read(&file_path)
+        .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
+
+    let map = state.0.lock().map_err(|e| e.to_string())?;
+    let writer_mutex = map.get(&zip_id)
+        .ok_or_else(|| format!("ZIP archive not found: {}", zip_id))?;
+
+    let mut writer = writer_mutex.lock().map_err(|e| e.to_string())?;
+
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    writer.start_file(&entry_name, options)
+        .map_err(|e| format!("Failed to start ZIP entry: {}", e))?;
+
+    writer.write_all(&contents)
+        .map_err(|e| format!("Failed to write ZIP entry: {}", e))?;
+
+    Ok(())
+}
+
+/// Clamp window size to 90% of current monitor dimensions.
+/// Called from JS after page load, when window-state plugin has already restored saved size.
+#[tauri::command]
+fn clamp_window_size(window: tauri::Window) -> Result<(), String> {
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let screen = monitor.size();
+        let scale = monitor.scale_factor();
+        let max_w = (screen.width as f64 / scale * 0.9) as u32;
+        let max_h = (screen.height as f64 / scale * 0.9) as u32;
+
+        if let Ok(size) = window.outer_size() {
+            let cur_w = (size.width as f64 / scale) as u32;
+            let cur_h = (size.height as f64 / scale) as u32;
+            if cur_w > max_w || cur_h > max_h {
+                let new_w = cur_w.min(max_w);
+                let new_h = cur_h.min(max_h);
+                let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(new_w as f64, new_h as f64)));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Finalize and close a ZIP archive.
+/// Must be called after all files are added to produce a valid ZIP.
+#[tauri::command]
+fn zip_finalize(state: State<ZipState>, zip_id: String) -> Result<(), String> {
+    let mut map = state.0.lock().map_err(|e| e.to_string())?;
+    let writer_mutex = map.remove(&zip_id)
+        .ok_or_else(|| format!("ZIP archive not found: {}", zip_id))?;
+
+    let writer = writer_mutex.into_inner().map_err(|e| e.to_string())?;
+
+    writer.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+
+    Ok(())
+}
+
+// ============================================================================
 // Application Entry Point
 // ============================================================================
 //
@@ -1155,6 +1423,7 @@ fn main() {
     tauri::Builder::default()
         // Make the database connection available to all commands via State<DbState>
         .manage(DbState(Mutex::new(db)))
+        .manage(ZipState(Mutex::new(HashMap::new())))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -1166,6 +1435,8 @@ fn main() {
                 let window_icon = Image::from_bytes(include_bytes!("../icons/128x128.png"))
                     .expect("Failed to load window icon");
                 let _ = window.set_icon(window_icon);
+
+
             }
 
             // Create tray menu
@@ -1249,6 +1520,14 @@ fn main() {
             db_remove_file,
             db_update_last_opened,
             db_rebuild_from_library,
+            list_ssce_files,
+            get_monthly_summary,
+            save_exported_image,
+            zip_create,
+            zip_add_file,
+            zip_add_path,
+            zip_finalize,
+            clamp_window_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

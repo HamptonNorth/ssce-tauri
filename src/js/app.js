@@ -32,7 +32,7 @@ import { initToolbarEvents, setActiveTool } from "./ui/toolbar.js";
 import { initKeyboardShortcuts } from "./keyboard.js";
 import { newCanvas, openFile, handleFileSelect, loadImageFile, handleSave, handleSaveAs, handlePrint, handleUndo, handleRedo, updateUndoRedoButtons, setDirectoryConfig, saveAsSsce } from "./file-operations.js";
 import * as tauriBridge from "./tauri-bridge.js";
-import { initDialogs, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton } from "./ui/dialogs/index.js";
+import { initDialogs, showResizeDialog, showPrintDialog, showCombineDialog, showColourPickerDialog, showPastePositionDialog, showFrontMatterDialog, showViewSnapshotsDialog, updateViewSnapshotsButton, showBulkExportDialog } from "./ui/dialogs/index.js";
 import { initRecentFilesDialog, showRecentFilesDialog } from "./ui/dialogs/recent-files-dialog.js";
 import { initSearchLibraryDialog, showSearchLibraryDialog } from "./ui/dialogs/search-library-dialog.js";
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
@@ -185,6 +185,7 @@ async function init() {
     handleSnapshot: () => handleSnapshot(false),
     handleViewSnapshots: () => showViewSnapshotsDialog(),
     handleExportSnapshotViewer: () => handleExportSnapshotViewer(),
+    handleBulkExport: () => showBulkExportDialog(),
   });
   initKeyboardShortcuts({
     newCanvas: () => newCanvas(updateStatusBar),
@@ -200,6 +201,7 @@ async function init() {
     setActiveTool,
     loadImageFile: (file) => loadImageFile(file, updateStatusBar),
     handleSnapshot: () => handleSnapshot(false),
+    handleBulkExport: () => showBulkExportDialog(),
   });
   initDragAndDrop((file) => loadImageFile(file, updateStatusBar), setActiveTool);
   initZoomResizeListener();
@@ -286,6 +288,9 @@ async function init() {
 
   // Set up beforeunload handler for unsaved changes warning
   window.addEventListener("beforeunload", handleBeforeUnload);
+
+  // Clamp window size to 90% of monitor (window-state plugin may have restored an oversized window)
+  await tauriBridge.clampWindowSize();
 
   console.log("SSCE: Initialization complete");
 }

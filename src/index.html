@@ -187,6 +187,14 @@
                                 </svg>
                                 <span>Export Snapshot Viewer...</span>
                             </button>
+                            <div class="border-t border-gray-600 my-1"></div>
+                            <button id="menu-bulk-export" class="w-full px-4 py-2 text-left hover:bg-gray-600 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                </svg>
+                                <span>Bulk Export / Backup...</span>
+                                <span class="ml-auto text-xs text-gray-400">Ctrl+Shift+E</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -653,6 +661,151 @@
                     <button type="button" id="print-debug" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Export to Browser</button>
                 </div>
             </form>
+        </dialog>
+
+        <!-- Bulk Export / Backup Dialog -->
+        <dialog id="dialog-bulk-export" class="bg-gray-800 text-gray-100 rounded-lg p-6 backdrop:bg-black/50 min-w-[500px]">
+            <h2 class="text-lg font-semibold mb-4">Bulk Export / Backup</h2>
+            <div class="space-y-4">
+                <!-- Mode selector -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Mode</label>
+                    <div class="flex gap-3">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkMode" value="export" checked class="text-blue-500" />
+                            Export as images (PNG/JPEG)
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkMode" value="backup" class="text-blue-500" />
+                            Backup .ssce files to ZIP
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Source folder -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Source folder</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="bulk-export-source" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm" readonly />
+                        <button type="button" id="bulk-export-browse" class="px-3 py-2 rounded bg-gray-600 hover:bg-gray-500 text-sm">Browse</button>
+                    </div>
+                    <p id="bulk-export-file-count" class="text-xs text-gray-500 mt-1"></p>
+                </div>
+
+                <!-- Date filter -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Filter by date</label>
+                    <div class="space-y-1">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkDateFilter" value="all" checked class="text-blue-500" />
+                            All files
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkDateFilter" value="thisMonth" class="text-blue-500" />
+                            This month <span id="bulk-export-this-month-count" class="text-gray-500"></span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkDateFilter" value="lastMonth" class="text-blue-500" />
+                            Last month <span id="bulk-export-last-month-count" class="text-gray-500"></span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkDateFilter" value="range" class="text-blue-500" />
+                            Custom range
+                        </label>
+                        <div id="bulk-export-range-inputs" class="hidden ml-6 flex gap-2 items-center text-sm">
+                            <input type="date" id="bulk-export-date-start" class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm" />
+                            <span>to</span>
+                            <input type="date" id="bulk-export-end" class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm" />
+                        </div>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" name="bulkDateFilter" value="selected" class="text-blue-500" />
+                            Select months
+                        </label>
+                        <div id="bulk-export-month-selector" class="hidden ml-6 flex flex-wrap gap-2 text-sm max-h-24 overflow-y-auto"></div>
+                    </div>
+                    <p id="bulk-export-filtered-count" class="text-xs text-gray-500 mt-1"></p>
+                </div>
+
+                <!-- Export-only options (hidden in backup mode) -->
+                <div id="bulk-export-image-options">
+                    <!-- Format -->
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Format</label>
+                        <div class="flex gap-3">
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="radio" name="bulkFormat" value="png" class="text-blue-500" />
+                                PNG
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="radio" name="bulkFormat" value="jpg" class="text-blue-500" />
+                                JPEG
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="radio" name="bulkFormat" value="auto" checked class="text-blue-500" />
+                                Auto (PNG if transparent, JPEG otherwise)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Include snapshots -->
+                    <label class="flex items-center gap-2 text-sm mt-4">
+                        <input type="checkbox" id="bulk-export-snapshots" class="text-blue-500" />
+                        Include snapshots as separate files
+                    </label>
+
+                    <!-- Output type -->
+                    <div class="mt-4">
+                        <label class="block text-sm text-gray-400 mb-1">Output</label>
+                        <div class="space-y-1">
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="radio" name="bulkOutput" value="folder" class="text-blue-500" />
+                                Export to folder
+                            </label>
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="radio" name="bulkOutput" value="zip" checked class="text-blue-500" />
+                                Export to ZIP archive
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ZIP options -->
+                <div id="bulk-export-zip-options">
+                    <label class="block text-sm text-gray-400 mb-1">ZIP filename</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="bulk-export-zip-name" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm" value="ssce-backup-all.zip" />
+                        <button type="button" id="bulk-export-zip-browse" class="px-3 py-2 rounded bg-gray-600 hover:bg-gray-500 text-sm">Browse</button>
+                    </div>
+                    <p id="bulk-export-zip-output-path" class="text-xs text-gray-500 mt-1"></p>
+                    <label class="flex items-center gap-2 text-sm mt-2">
+                        <input type="checkbox" id="bulk-export-organize" class="text-blue-500" />
+                        Organize by month in ZIP (creates subfolders)
+                    </label>
+                </div>
+
+                <!-- Output folder (for folder mode) -->
+                <div id="bulk-export-folder-options" class="hidden">
+                    <label class="block text-sm text-gray-400 mb-1">Output folder</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="bulk-export-output-folder" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm" readonly />
+                        <button type="button" id="bulk-export-output-browse" class="px-3 py-2 rounded bg-gray-600 hover:bg-gray-500 text-sm">Browse</button>
+                    </div>
+                </div>
+
+                <!-- Progress bar -->
+                <div id="bulk-export-progress-section" class="hidden">
+                    <div class="w-full bg-gray-700 rounded-full h-3">
+                        <div id="bulk-export-progress-bar" class="bg-blue-500 h-3 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <p id="bulk-export-progress-text" class="text-xs text-gray-500 mt-1">Exporting...</p>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" id="bulk-export-cancel" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Cancel</button>
+                    <button type="button" id="bulk-export-btn" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500">Export</button>
+                </div>
+            </div>
         </dialog>
 
         <!-- Combine Image Position Dialog -->

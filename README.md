@@ -59,6 +59,14 @@ Each tool displays a slide-down settings panel with tool-specific options:
 - **Rebuild from Library** - Re-index all files if library is incomplete
 - **SQLite database** - Persistent library stored in user config directory
 
+### Bulk Export & Backup
+- **Export as images** - Batch convert .ssce files to PNG/JPEG with date filtering, auto format detection, optional snapshot export, output to folder or ZIP archive
+- **Backup .ssce files** - Bundle raw .ssce files into a ZIP archive for portable backup
+- **Date filtering** - Filter by all files, this month, last month, custom date range, or selected months
+- **ZIP archives** - Timestamped filenames, optional organize-by-month subfolders
+- **Progress tracking** - Progress bar with file-by-file status during export/backup
+- **Keyboard shortcut** - Ctrl+Shift+E opens the Bulk Export / Backup dialog
+
 ### Image Operations
 - **Native file dialogs** - OS-native open/save dialogs
 - **Combine images** - Paste or drop a second image and position it
@@ -139,6 +147,7 @@ User customizations are saved to `~/.config/ssce-desktop/defaults.json` (Linux) 
 | Ctrl+Z | Undo |
 | Ctrl+Y | Redo |
 | Alt+S | Take Snapshot |
+| Ctrl+Shift+E | Bulk Export / Backup |
 | **Tool Selection** | |
 | V | Select tool |
 | A | Arrow tool |
@@ -271,6 +280,14 @@ The Rust backend provides these commands callable from JavaScript:
 | `save_autosave` | Save autosave data to temp file |
 | `delete_autosave` | Delete autosave temp file |
 | `list_autosave_files` | List autosave files in temp directory |
+| **Bulk Export & Backup** | |
+| `list_ssce_files` | Scan directory for .ssce files with parsed dates |
+| `get_monthly_summary` | Group .ssce file counts by month |
+| `save_exported_image` | Write base64 image data to file |
+| `zip_create` | Create a new ZIP archive, returns archive ID |
+| `zip_add_file` | Add base64-encoded data as a ZIP entry |
+| `zip_add_path` | Add a file from disk directly to a ZIP entry |
+| `zip_finalize` | Close and finalize a ZIP archive |
 
 ## Build Notes
 

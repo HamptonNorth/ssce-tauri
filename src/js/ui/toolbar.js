@@ -188,6 +188,11 @@ export function initToolbarEvents(handlers) {
     handlers.handleExportSnapshotViewer();
   });
 
+  document.getElementById("menu-bulk-export").addEventListener("click", () => {
+    fileMenu.classList.add("hidden");
+    handlers.handleBulkExport();
+  });
+
   document.getElementById("menu-edit-file-info").addEventListener("click", () => {
     fileMenu.classList.add("hidden");
     handlers.handleEditFileInfo();

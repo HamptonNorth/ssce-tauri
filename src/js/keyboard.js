@@ -14,7 +14,7 @@ import { state, modules } from "./state.js";
  * @param {Object} handlers - Object containing all handler functions
  */
 export function initKeyboardShortcuts(handlers) {
-  const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, handleExportPng, handleUndo, handleRedo, handleCopyToClipboard, handlePasteFromClipboard, setActiveTool, loadImageFile, handleSnapshot } = handlers;
+  const { newCanvas, openFile, handleSave, handleSaveAs, handlePrint, handleExportPng, handleBulkExport, handleUndo, handleRedo, handleCopyToClipboard, handlePasteFromClipboard, setActiveTool, loadImageFile, handleSnapshot } = handlers;
 
   document.addEventListener("keydown", (e) => {
     // Check for modifier keys
@@ -47,6 +47,12 @@ export function initKeyboardShortcuts(handlers) {
     if (ctrl && !shift && e.key === "e") {
       e.preventDefault();
       handleExportPng();
+    }
+
+    // Bulk Export / Backup (Ctrl+Shift+E)
+    if (ctrl && shift && e.key === "E") {
+      e.preventDefault();
+      handleBulkExport();
     }
 
     // Take snapshot (Alt+S)

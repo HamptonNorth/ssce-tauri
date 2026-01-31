@@ -17,10 +17,11 @@ A simple, powerful screen capture editor for annotating screenshots and images. 
 6. [Auto-Save and Recovery](#auto-save-and-recovery)
 7. [Saving Your Work](#saving-your-work)
 8. [Library & Search](#library--search)
-9. [Keyboard Shortcuts](#keyboard-shortcuts)
-10. [Tips & Tricks](#tips--tricks)
-11. [Troubleshooting](#troubleshooting)
-12. [Appendix: Technical Details](#appendix-technical-details)
+9. [Bulk Export & Backup](#bulk-export--backup)
+10. [Keyboard Shortcuts](#keyboard-shortcuts)
+11. [Tips & Tricks](#tips--tricks)
+12. [Troubleshooting](#troubleshooting)
+13. [Appendix: Technical Details](#appendix-technical-details)
 
 ---
 
@@ -400,6 +401,60 @@ Configure the library path in **Settings** (gear icon in toolbar) under `paths.l
 
 ---
 
+## Bulk Export & Backup
+
+SSCE Desktop can batch-export your .ssce files to standard image formats, or back them up as a ZIP archive. Open via **File > Bulk Export / Backup** or press **Ctrl+Shift+E**.
+
+The dialog has two modes, selectable at the top:
+
+### Mode 1: Export as Images (PNG/JPEG)
+
+Converts .ssce files to standard image formats for sharing or archiving outside SSCE.
+
+**How to use:**
+1. Select **Export as images (PNG/JPEG)** mode
+2. Browse to your source folder containing .ssce files
+3. Use the date filter to narrow down which files to export:
+   - **All files** - exports everything
+   - **This month / Last month** - quick filters with file counts shown
+   - **Custom range** - pick start and end dates
+   - **Select months** - tick individual months from a list
+4. Choose the image format:
+   - **PNG** - lossless, supports transparency
+   - **JPEG** - smaller files, no transparency
+   - **Auto** - PNG if the image has transparency, JPEG otherwise
+5. Optionally tick **Include snapshots as separate files** to export each snapshot as its own image
+6. Choose output type:
+   - **Export to folder** - saves individual image files to a folder
+   - **Export to ZIP archive** - bundles all images into a single ZIP
+7. For ZIP output, the filename is auto-suggested with a timestamp (e.g. `ssce-backup-2026-01-2026-01-31-14-30.zip`). The full output path is shown below the filename field.
+8. Optionally tick **Organize by month** to create subfolders (e.g. `2026-01/`) within the ZIP or output folder
+9. Click **Export**
+
+A progress bar shows file-by-file status during export.
+
+### Mode 2: Backup .ssce Files to ZIP
+
+Bundles your raw .ssce project files into a ZIP archive for portable backup. No rendering or conversion is performed - the original files are copied directly.
+
+**How to use:**
+1. Select **Backup .ssce files to ZIP** mode
+2. Browse to your source folder
+3. Use the date filter to select which files to include
+4. Enter a ZIP filename (auto-suggested with timestamp) or click Browse to choose a save location
+5. Optionally tick **Organize by month** for subfolder structure within the ZIP
+6. Click **Backup**
+
+The ZIP is saved to the source folder by default. The full output path is displayed below the filename field.
+
+### Tips
+
+- The ZIP filename includes a timestamp so you can run backups repeatedly without overwriting previous ones
+- Use monthly backups (filter by "Last month") as part of a regular archiving workflow
+- The output path is always shown so you know exactly where the file will be written
+
+---
+
 ## Keyboard Shortcuts
 
 ### File Operations
@@ -413,6 +468,7 @@ Configure the library path in **Settings** (gear icon in toolbar) under `paths.l
 | Ctrl+R | Recent Files |
 | Ctrl+Shift+F | Search Library |
 | Alt+S | Take Snapshot |
+| Ctrl+Shift+E | Bulk Export / Backup |
 | Ctrl+C | Copy to clipboard |
 | Ctrl+V | Paste from clipboard |
 | Ctrl+Z | Undo |
@@ -581,7 +637,7 @@ SSCE works best with images under 4000x4000 pixels. Larger images may be slow to
 
 **Can I use SSCE for batch editing?**
 
-Currently, SSCE edits one image at a time. For batch processing, you'll need to open and save each image individually.
+SSCE edits one image at a time, but you can batch-export your .ssce files to PNG/JPEG or back them up as a ZIP using **File > Bulk Export / Backup** (Ctrl+Shift+E).
 
 ---
 
@@ -647,6 +703,7 @@ See the project README at https://github.com/HamptonNorth/ssce-tauri for build i
 ---
 
 **Version History:**
+- v1.3.0 (Jan 2026): Bulk export & backup, print positioning, testing foundation, macOS build
 - v1.2.0 (Jan 2026): Library search with SQLite/FTS5, canvas background toggle, locale-aware dates
 - v1.0.0 (Jan 2026): Initial Tauri desktop release with native file dialogs
 

@@ -494,6 +494,151 @@ export async function listAutosaveFiles(directory) {
 }
 
 // ============================================================================
+// Window Management
+
+/**
+ * Clamp window size to 90% of current monitor dimensions
+ * @returns {Promise<void>}
+ */
+export async function clampWindowSize() {
+  if (!isTauri()) return;
+  const invoke = getInvoke();
+  if (!invoke) return;
+  try {
+    await invoke("clamp_window_size");
+  } catch (err) {
+    console.warn("clampWindowSize failed:", err);
+  }
+}
+
+// Bulk Export Functions
+// ============================================================================
+
+/**
+ * List all .ssce files in a directory with parsed date metadata
+ * @param {string} directory - Directory path to scan
+ * @returns {Promise<Array<{name: string, path: string, date: string|null, size: number}>>}
+ */
+export async function listSsceFiles(directory) {
+  if (!isTauri()) return [];
+  try {
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("list_ssce_files", { directory });
+  } catch (error) {
+    console.error("listSsceFiles failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get monthly summary of .ssce files in a directory
+ * @param {string} directory - Directory path to scan
+ * @returns {Promise<Array<{month: string, count: number}>>}
+ */
+export async function getMonthlySummary(directory) {
+  if (!isTauri()) return [];
+  try {
+    const invoke = getInvoke();
+    if (!invoke) throw new Error("Tauri invoke not available");
+    return await invoke("get_monthly_summary", { directory });
+  } catch (error) {
+    console.error("getMonthlySummary failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Save an exported image to a file path
+ * @param {string} path - Output file path
+ * @param {string} data - Base64 data URL
+ * @returns {Promise<void>}
+ */
+export async function saveExportedImage(path, data) {
+  if (!isTauri()) throw new Error("Not in Tauri environment");
+  const invoke = getInvoke();
+  if (!invoke) throw new Error("Tauri invoke not available");
+  await invoke("save_exported_image", { path, data });
+}
+
+/**
+ * Create a new ZIP archive
+ * @param {string} outputPath - Path for the ZIP file
+ * @returns {Promise<string>} ZIP archive ID
+ */
+export async function zipCreate(outputPath) {
+  if (!isTauri()) throw new Error("Not in Tauri environment");
+  const invoke = getInvoke();
+  if (!invoke) throw new Error("Tauri invoke not available");
+  return await invoke("zip_create", { outputPath });
+}
+
+/**
+ * Add a file to an open ZIP archive
+ * @param {string} zipId - Archive ID from zipCreate
+ * @param {string} entryName - Filename within the ZIP
+ * @param {string} base64Data - Base64 data URL of the file contents
+ * @returns {Promise<void>}
+ */
+export async function zipAddFile(zipId, entryName, base64Data) {
+  if (!isTauri()) throw new Error("Not in Tauri environment");
+  const invoke = getInvoke();
+  if (!invoke) throw new Error("Tauri invoke not available");
+  await invoke("zip_add_file", { zipId, entryName, base64Data });
+}
+
+/**
+ * Add a file from disk to an open ZIP archive by filesystem path
+ * @param {string} zipId - Archive ID from zipCreate
+ * @param {string} entryName - Name of the entry in the ZIP
+ * @param {string} filePath - Absolute path to the file on disk
+ * @returns {Promise<void>}
+ */
+export async function zipAddPath(zipId, entryName, filePath) {
+  if (!isTauri()) throw new Error("Not in Tauri environment");
+  const invoke = getInvoke();
+  if (!invoke) throw new Error("Tauri invoke not available");
+  await invoke("zip_add_path", { zipId, entryName, filePath });
+}
+
+/**
+ * Finalize and close a ZIP archive
+ * @param {string} zipId - Archive ID from zipCreate
+ * @returns {Promise<void>}
+ */
+export async function zipFinalize(zipId) {
+  if (!isTauri()) throw new Error("Not in Tauri environment");
+  const invoke = getInvoke();
+  if (!invoke) throw new Error("Tauri invoke not available");
+  await invoke("zip_finalize", { zipId });
+}
+
+/**
+ * Show native folder picker dialog
+ * @param {Object} options
+ * @param {string} options.title - Dialog title
+ * @param {string} options.defaultPath - Starting directory
+ * @returns {Promise<string|null>} Selected directory path or null
+ */
+export async function showFolderDialog(options = {}) {
+  if (!isTauri()) return null;
+  try {
+    const dialog = getDialog();
+    if (!dialog || !dialog.open) throw new Error("Tauri dialog API not available");
+    const defaultPath = options.defaultPath || (await getHomeDir());
+    return await dialog.open({
+      title: options.title || "Select Folder",
+      defaultPath,
+      directory: true,
+      multiple: false,
+    });
+  } catch (error) {
+    console.error("showFolderDialog failed:", error);
+    return null;
+  }
+}
+
+// ============================================================================
 // Clipboard Functions
 // ============================================================================
 
