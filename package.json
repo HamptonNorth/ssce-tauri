@@ -1,0 +1,12 @@
+{
+  "name": "ssce-desktop",
+  "version": "1.2.0",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "test:e2e": "bunx playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.1"
+  }
+}

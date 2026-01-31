@@ -13,7 +13,25 @@ env:
   APP_NAME: "SSCE Desktop"
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run unit tests
+        run: bun test
+
   build-linux:
+    needs: [unit-tests]
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -70,6 +88,7 @@ jobs:
           if-no-files-found: ignore
 
   build-windows:
+    needs: [unit-tests]
     runs-on: windows-latest
     steps:
       - name: Checkout repository

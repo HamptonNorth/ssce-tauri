@@ -335,6 +335,10 @@ export function showPrintDialog() {
   if (paddingVertical) paddingVertical.value = printConfig.paddingVertical ?? 10;
   if (paddingHorizontal) paddingHorizontal.value = printConfig.paddingHorizontal ?? 10;
 
+  // Set image position radio
+  const imagePositionRadio = document.querySelector(`input[name="imagePosition"][value="${printConfig.imagePosition || "center"}"]`);
+  if (imagePositionRadio) imagePositionRadio.checked = true;
+
   document.getElementById("dialog-print").showModal();
 }
 
@@ -348,9 +352,10 @@ async function handlePrintSubmit(e) {
   const paperSize = document.querySelector('input[name="paperSize"]:checked').value;
   const paddingVertical = parseInt(document.querySelector('input[name="paddingVertical"]').value) || 10;
   const paddingHorizontal = parseInt(document.querySelector('input[name="paddingHorizontal"]').value) || 10;
+  const imagePosition = document.querySelector('input[name="imagePosition"]:checked').value;
 
-  // Save paper size to config (persists across sessions)
-  await savePrintConfig({ paperSize, paddingVertical, paddingHorizontal });
+  // Save print config (persists across sessions)
+  await savePrintConfig({ paperSize, paddingVertical, paddingHorizontal, imagePosition });
 
   // Get filename from state
   const filename = state.filename || "";
@@ -360,6 +365,7 @@ async function handlePrintSubmit(e) {
     paperSize,
     paddingVertical,
     paddingHorizontal,
+    imagePosition,
     filename,
   });
 
@@ -374,6 +380,7 @@ async function handlePrintDebug() {
   const paperSize = document.querySelector('input[name="paperSize"]:checked').value;
   const paddingVertical = parseInt(document.querySelector('input[name="paddingVertical"]').value) || 10;
   const paddingHorizontal = parseInt(document.querySelector('input[name="paddingHorizontal"]').value) || 10;
+  const imagePosition = document.querySelector('input[name="imagePosition"]:checked').value;
   const filename = state.filename || "";
 
   document.getElementById("dialog-print").close();
@@ -383,6 +390,7 @@ async function handlePrintDebug() {
     paperSize,
     paddingVertical,
     paddingHorizontal,
+    imagePosition,
     filename,
   });
 }

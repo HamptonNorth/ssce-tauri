@@ -117,6 +117,7 @@
   "print": {
     "paperSize": "a4",
     "paddingVertical": 10,
-    "paddingHorizontal": 10
+    "paddingHorizontal": 10,
+    "imagePosition": "center"
   }
 }

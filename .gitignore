@@ -3,6 +3,9 @@
 **/*.rs.bk
 Cargo.lock
 
+# Dependencies
+node_modules/
+
 # Build outputs
 /src-tauri/target/
 /dist/

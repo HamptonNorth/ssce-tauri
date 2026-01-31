@@ -11,8 +11,11 @@
  * @param {Object} options - Print options
  * @returns {Object} { styles, container } - The style content and HTML content
  */
-function generatePrintContent(imageDataUrl, options) {
-  const { orientation = "portrait", paperSize = "a4", paddingVertical = 10, paddingHorizontal = 10, filename = "" } = options;
+export function generatePrintContent(imageDataUrl, options) {
+  const { orientation = "portrait", paperSize = "a4", paddingVertical = 10, paddingHorizontal = 10, imagePosition = "center", filename = "" } = options;
+
+  // Map position to CSS align-items value
+  const alignItems = imagePosition === "top" ? "flex-start" : imagePosition === "bottom" ? "flex-end" : "center";
 
   // Paper size CSS value
   const paperSizeValue = paperSize === "letter" ? "letter" : "A4";
@@ -48,7 +51,7 @@ function generatePrintContent(imageDataUrl, options) {
             #print-image-wrapper {
                 flex: 1 !important;
                 display: flex !important;
-                align-items: center !important;
+                align-items: ${alignItems} !important;
                 justify-content: center !important;
                 min-height: 0 !important;
                 overflow: hidden !important;
@@ -100,7 +103,7 @@ function generatePrintContent(imageDataUrl, options) {
     </div>
   `;
 
-  return { styles, container, paperSizeValue, orientation, paddingVertical, paddingHorizontal };
+  return { styles, container, paperSizeValue, orientation, paddingVertical, paddingHorizontal, alignItems };
 }
 
 /**
@@ -140,7 +143,7 @@ export function printImage(canvasManager, options = {}) {
     #print-image-wrapper {
       flex: 1;
       display: flex;
-      align-items: center;
+      align-items: ${alignItems};
       justify-content: center;
       min-height: 0;
       overflow: hidden;
@@ -207,7 +210,7 @@ export async function exportPrintDebugHtml(canvasManager, options = {}) {
   // Capture image data
   const imageDataUrl = canvasManager.toDataURL();
 
-  const { styles, container, paperSizeValue, orientation, paddingVertical, paddingHorizontal } = generatePrintContent(imageDataUrl, options);
+  const { styles, container, paperSizeValue, orientation, paddingVertical, paddingHorizontal, alignItems } = generatePrintContent(imageDataUrl, options);
 
   // Create full HTML document with separate screen and print styles
   const html = `<!DOCTYPE html>
@@ -239,7 +242,7 @@ export async function exportPrintDebugHtml(canvasManager, options = {}) {
     .page-preview .image-wrapper {
       flex: 1;
       display: flex;
-      align-items: center;
+      align-items: ${alignItems};
       justify-content: center;
       min-height: 0;
       overflow: hidden;

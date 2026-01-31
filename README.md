@@ -193,6 +193,36 @@ ssce-tauri/
 └── CHEAT_SHEET.md            # Common Tauri commands
 ```
 
+## Testing
+
+### Prerequisites
+
+```bash
+bun install
+```
+
+### Unit Tests
+
+Run all unit tests (colours, ssce-format, etc.):
+
+```bash
+bun test
+```
+
+### E2E Tests (Playwright)
+
+Playwright auto-starts a static file server, so no separate dev server is needed:
+
+```bash
+bunx playwright test
+```
+
+Install browsers on first run:
+
+```bash
+bunx playwright install
+```
+
 ## Development
 
 ### Frontend Changes
