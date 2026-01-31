@@ -126,9 +126,41 @@ jobs:
           name: windows-msi
           path: src-tauri/target/release/bundle/msi/*.msi
 
+  build-macos:
+    needs: [unit-tests]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
+
+      - name: Generate build timestamp
+        run: |
+          date '+%Y-%m-%d %H:%M:%S' > src/config/build-time.txt
+          echo "Created build-time.txt:"
+          cat src/config/build-time.txt
+
+      - name: Build Tauri app
+        run: cargo tauri build
+        working-directory: src-tauri
+
+      - name: List build outputs
+        run: find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app" \)
+
+      - name: Upload .dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+
   # Upload all artifacts to the release
   upload-release-assets:
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
@@ -151,5 +183,6 @@ jobs:
             artifacts/**/*.AppImage
             artifacts/**/*.exe
             artifacts/**/*.msi
+            artifacts/**/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
