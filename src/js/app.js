@@ -21,6 +21,7 @@ import { CropTool } from "./tools/crop.js";
 import { CutTool } from "./tools/cut.js";
 import { FadeEdgesTool } from "./tools/fade-edges.js";
 import { BordersTool } from "./tools/borders.js";
+import { FillTool } from "./tools/fill.js";
 import { loadColours } from "./utils/colours.js";
 import { printImage } from "./utils/export.js";
 import { showToast } from "./utils/toast.js";
@@ -38,6 +39,7 @@ import { initSearchLibraryDialog, showSearchLibraryDialog } from "./ui/dialogs/s
 import { toggleZoom, updateZoomButton, recalculateZoom, initZoomResizeListener } from "./utils/zoom.js";
 import { initCanvasBackgroundToggle } from "./utils/canvas-background.js";
 import { loadConfig, getToolConfig, getSymbols, getSteps, updateWindowTitleWithBuildTime, getAutosaveConfig } from "./utils/config.js";
+import { CanvasResizeHandles } from "./utils/canvas-resize-handles.js";
 import { initPropertyCards, showPropertyCard } from "./ui/property-cards/index.js";
 import { initSsceSession, addSnapshot, getSnapshots, setFrontMatter } from "./ssce-file-ops.js";
 import { serialize, deserialize, createSnapshot } from "./utils/ssce-format.js";
@@ -154,6 +156,22 @@ async function init() {
   modules.cutTool = new CutTool(modules.canvasManager, modules.layerManager, notifyLayerChange);
   modules.fadeEdgesTool = new FadeEdgesTool(modules.canvasManager, modules.layerManager, notifyLayerChange);
   modules.bordersTool = new BordersTool(modules.canvasManager, modules.layerManager, notifyLayerChange);
+  modules.fillTool = new FillTool(modules.canvasManager, modules.layerManager, () => state.currentColour, notifyLayerChange);
+
+  // Initialize canvas resize handles
+  const canvasWrapper = document.getElementById("canvas-wrapper");
+  modules.canvasResizeHandles = new CanvasResizeHandles({
+    wrapper: canvasWrapper,
+    canvasManager: modules.canvasManager,
+    onBeforeResize: () => {
+      modules.layerManager.saveUndoState();
+    },
+    onAfterResize: () => {
+      notifyLayerChange();
+      updateStatusBar();
+      recalculateZoom();
+    },
+  });
 
   // Set symbols array from defaults on the symbols tool
   modules.symbolsTool.setSymbols(getSymbols());
@@ -240,10 +258,9 @@ async function init() {
   updateUndoRedoButtons();
   updateStatusBar();
 
-  // Restore persisted tool (activate after tools are initialized)
-  if (state.currentTool) {
-    setActiveTool(state.currentTool);
-  }
+  // Don't auto-activate a tool on startup - let the user pick one.
+  // Canvas has focus by default, no tool highlighted.
+  state.currentTool = null;
 
   // Update text size UI to match persisted state
   document.getElementById("current-text-size").textContent = state.textSize.toUpperCase();
@@ -291,6 +308,20 @@ async function init() {
 
   // Clamp window size to 90% of monitor (window-state plugin may have restored an oversized window)
   await tauriBridge.clampWindowSize();
+
+  // Check if app was launched with a file argument (e.g., ssce-desktop /path/to/file.png)
+  if (window.__TAURI__?.core) {
+    try {
+      const filePath = await window.__TAURI__.core.invoke("get_cli_file_arg");
+      if (filePath) {
+        console.log("SSCE: CLI file argument:", filePath);
+        const { loadFileFromPath } = await import("./file-operations.js");
+        await loadFileFromPath(filePath, updateStatusBar);
+      }
+    } catch (err) {
+      console.error("SSCE: Failed to check CLI file arg:", err);
+    }
+  }
 
   console.log("SSCE: Initialization complete");
 }

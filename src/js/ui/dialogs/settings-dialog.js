@@ -37,10 +37,38 @@ export function initSettingsDialog() {
 
   if (!dialog) return;
 
-  // Settings button in toolbar
+  // Settings gear dropdown toggle
   const settingsBtn = document.getElementById("btn-settings");
-  if (settingsBtn) {
-    settingsBtn.addEventListener("click", showSettingsDialog);
+  const settingsMenu = document.getElementById("settings-menu");
+  if (settingsBtn && settingsMenu) {
+    settingsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      settingsMenu.classList.toggle("hidden");
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", () => {
+      settingsMenu.classList.add("hidden");
+    });
+
+    // "Edit Settings" menu item opens settings dialog
+    const editSettingsBtn = document.getElementById("menu-edit-settings");
+    if (editSettingsBtn) {
+      editSettingsBtn.addEventListener("click", () => {
+        settingsMenu.classList.add("hidden");
+        showSettingsDialog();
+      });
+    }
+
+    // "About" menu item - handled by about-dialog.js
+    const aboutBtn = document.getElementById("menu-about");
+    if (aboutBtn) {
+      aboutBtn.addEventListener("click", async () => {
+        settingsMenu.classList.add("hidden");
+        const { showAboutDialog } = await import("./about-dialog.js");
+        showAboutDialog();
+      });
+    }
   }
 
   // Cancel button
@@ -190,10 +218,7 @@ async function handleSave() {
     dialog.close();
 
     // Prompt for restart
-    const restart = await showConfirmModal(
-      "Restart Required",
-      "Settings have been saved. The application needs to restart for changes to take effect.\n\nRestart now?"
-    );
+    const restart = await showConfirmModal("Restart Required", "Settings have been saved. The application needs to restart for changes to take effect.\n\nRestart now?");
 
     if (restart) {
       // Reload the app
@@ -209,10 +234,7 @@ async function handleSave() {
  * Handle reset button click
  */
 async function handleReset() {
-  const confirmed = await showConfirmModal(
-    "Reset to Defaults",
-    "This will reset all settings to the bundled defaults. Your custom configuration will be deleted.\n\nContinue?"
-  );
+  const confirmed = await showConfirmModal("Reset to Defaults", "This will reset all settings to the bundled defaults. Your custom configuration will be deleted.\n\nContinue?");
 
   if (!confirmed) return;
 
@@ -237,10 +259,7 @@ async function handleReset() {
     dialog.close();
 
     // Prompt for restart
-    const restart = await showConfirmModal(
-      "Restart Required",
-      "Settings have been reset. The application needs to restart for changes to take effect.\n\nRestart now?"
-    );
+    const restart = await showConfirmModal("Restart Required", "Settings have been reset. The application needs to restart for changes to take effect.\n\nRestart now?");
 
     if (restart) {
       window.location.reload();

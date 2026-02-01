@@ -1,6 +1,6 @@
 [package]
 name = "ssce-desktop"
-version = "1.3.0"
+version = "1.4.0"
 description = "SSCE Desktop - Screen Capture Editor"
 authors = ["SSCE Project <noreply@ssce.local>"]
 edition = "2021"

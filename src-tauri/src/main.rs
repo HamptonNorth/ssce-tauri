@@ -1365,6 +1365,88 @@ fn zip_add_path(state: State<ZipState>, zip_id: String, entry_name: String, file
     Ok(())
 }
 
+/// Get system information for the About dialog.
+/// Returns platform, OS version, arch, and app version.
+#[tauri::command]
+fn get_system_info(window: tauri::Window) -> Result<HashMap<String, String>, String> {
+    let mut info = HashMap::new();
+
+    info.insert("platform".to_string(), std::env::consts::OS.to_string());
+    info.insert("arch".to_string(), std::env::consts::ARCH.to_string());
+
+    // App version from Cargo.toml (embedded by Tauri)
+    info.insert("appVersion".to_string(), env!("CARGO_PKG_VERSION").to_string());
+
+    // Get OS details
+    #[cfg(target_os = "linux")]
+    {
+        // Try to read /etc/os-release for distro info
+        if let Ok(content) = fs::read_to_string("/etc/os-release") {
+            for line in content.lines() {
+                if let Some(name) = line.strip_prefix("PRETTY_NAME=") {
+                    let name = name.trim_matches('"');
+                    info.insert("osVersion".to_string(), name.to_string());
+                    break;
+                }
+            }
+        }
+        // Kernel version
+        if let Ok(uname) = fs::read_to_string("/proc/version") {
+            if let Some(kernel) = uname.split_whitespace().nth(2) {
+                info.insert("kernelVersion".to_string(), kernel.to_string());
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        info.insert("osVersion".to_string(), "Windows".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        info.insert("osVersion".to_string(), "macOS".to_string());
+    }
+
+    // Monitor info
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let size = monitor.size();
+        let scale = monitor.scale_factor();
+        info.insert("monitorWidth".to_string(), size.width.to_string());
+        info.insert("monitorHeight".to_string(), size.height.to_string());
+        info.insert("scaleFactor".to_string(), format!("{:.2}", scale));
+    }
+
+    // Config paths
+    if let Ok(config_dir) = get_user_config_dir() {
+        info.insert("configPath".to_string(), config_dir.to_string_lossy().to_string());
+    }
+
+    Ok(info)
+}
+
+/// Return the file path passed as a CLI argument, if any.
+/// Called by frontend after init to check if app was launched with a file.
+#[tauri::command]
+fn get_cli_file_arg() -> Option<String> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        let file_path = if args[1].starts_with("~") {
+            if let Some(home) = dirs::home_dir() {
+                args[1].replacen("~", &home.to_string_lossy().as_ref(), 1)
+            } else {
+                args[1].clone()
+            }
+        } else {
+            args[1].clone()
+        };
+        if std::path::Path::new(&file_path).exists() {
+            return Some(file_path);
+        }
+    }
+    None
+}
+
 /// Clamp window size to 90% of current monitor dimensions.
 /// Called from JS after page load, when window-state plugin has already restored saved size.
 #[tauri::command]
@@ -1435,8 +1517,6 @@ fn main() {
                 let window_icon = Image::from_bytes(include_bytes!("../icons/128x128.png"))
                     .expect("Failed to load window icon");
                 let _ = window.set_icon(window_icon);
-
-
             }
 
             // Create tray menu
@@ -1528,6 +1608,8 @@ fn main() {
             zip_add_path,
             zip_finalize,
             clamp_window_size,
+            get_cli_file_arg,
+            get_system_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,7 +11,7 @@ import { showPropertyCard } from "./property-cards/index.js";
 // ============================================================================
 
 // List of tools that appear in the "More Tools" dropdown
-const MORE_TOOLS = ["cut", "crop", "steps", "symbols", "combine", "highlight", "fade-edges", "borders"];
+const MORE_TOOLS = ["cut", "crop", "steps", "symbols", "combine", "highlight", "fade-edges", "borders", "fill"];
 
 // ============================================================================
 // Submenu Positioning
@@ -338,6 +338,7 @@ export function setActiveTool(toolName) {
   if (state.currentTool === "cut") modules.cutTool.deactivate();
   if (state.currentTool === "fade-edges") modules.fadeEdgesTool.deactivate();
   if (state.currentTool === "borders") modules.bordersTool.deactivate();
+  if (state.currentTool === "fill") modules.fillTool.deactivate();
 
   state.currentTool = toolName;
   persistState("currentTool", toolName);
@@ -373,6 +374,15 @@ export function setActiveTool(toolName) {
   // Update size dropdown labels based on tool
   updateSizeLabels(toolName);
 
+  // Show/hide canvas resize handles (visible when select tool is active)
+  if (modules.canvasResizeHandles) {
+    if (toolName === "select") {
+      modules.canvasResizeHandles.show();
+    } else {
+      modules.canvasResizeHandles.hide();
+    }
+  }
+
   // Update canvas cursor
   const canvas = document.getElementById("main-canvas");
   canvas.className = `cursor-${toolName}`;
@@ -391,6 +401,7 @@ export function setActiveTool(toolName) {
   if (toolName === "cut") modules.cutTool.activate();
   if (toolName === "fade-edges") modules.fadeEdgesTool.activate();
   if (toolName === "borders") modules.bordersTool.activate();
+  if (toolName === "fill") modules.fillTool.activate();
 }
 
 /**

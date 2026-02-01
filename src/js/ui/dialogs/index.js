@@ -66,6 +66,9 @@ import { initSearchLibraryDialog } from "./search-library-dialog.js";
 export { showBulkExportDialog } from "./bulk-export-dialog.js";
 import { initBulkExportDialog } from "./bulk-export-dialog.js";
 
+// About dialog
+import { initAboutDialog } from "./about-dialog.js";
+
 // ============================================================================
 // Unified Initialization
 // ============================================================================
@@ -114,6 +117,8 @@ export function initDialogs(options) {
   initSettingsDialog();
 
   initBulkExportDialog();
+
+  initAboutDialog();
 
   // Initialize recent files and search dialogs with file select handler
   if (onFileSelect) {

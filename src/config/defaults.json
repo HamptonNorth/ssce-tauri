@@ -52,7 +52,9 @@
   },
   "canvas": {
     "background": "#CCCCCC",
-    "transparentGrid": "#E0E0E0"
+    "transparentGrid": "#E0E0E0",
+    "defaultWidth": 800,
+    "defaultHeight": 600
   },
   "lineWidthPresets": {
     "xs": 1,

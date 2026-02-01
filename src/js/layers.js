@@ -1,3 +1,5 @@
+import { getDefaultCanvasSize } from "./utils/config.js";
+
 /**
  * SSCE - Layer Manager
  *
@@ -65,7 +67,8 @@ export class LayerManager {
     this.layers = [];
     this.undoStack = [];
     this.redoStack = [];
-    this.canvasManager.setSize(800, 600);
+    const defaultSize = getDefaultCanvasSize();
+    this.canvasManager.setSize(defaultSize.width, defaultSize.height);
     this.canvasManager.clear();
   }
 
@@ -496,6 +499,10 @@ export class LayerManager {
           layer.data.endY += dy;
           break;
         case "text":
+        case "step":
+        case "symbol":
+        case "shape":
+        case "highlight":
           layer.data.x += dx;
           layer.data.y += dy;
           break;

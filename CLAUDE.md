@@ -102,8 +102,9 @@ The frontend loads `defaults.json` via Tauri command (with `~` paths expanded by
 - System tray with minimize-on-close
 
 ### Not Yet Implemented (Tauri-specific)
-- Auto-updates (deferred)
-- Native menus (optional)
+- Auto-updates (deferred to Beyond 1.4.0)
+- Native menus (optional, deferred to Beyond 1.4.0)
+- Single-instance support (deferred - plugin causes window control issues)
 
 ## Architecture
 
@@ -245,9 +246,6 @@ Visual feedback during file open/save:
 - CSS overlay with spinner animation in `src/css/app.css`
 - Integrated into load, save, save-as, and save-as-ssce flows
 
-### Future Enhancements
-- Native menus (optional)
-
 ---
 
 ## Implementation Plan - v1.2.0 Release
@@ -349,55 +347,51 @@ Visual feedback during file open/save:
 
 ---
 
-## Implementation Plan - v2.0.0 Release (Future)
+## Implementation Plan - v1.4.0 Release
 
-*Deferred from v1.2.0 to allow stability testing*
-
-### Phase 1: Auto-Updates
-**Goal**: Seamless update delivery via GitHub Releases
-
-#### 1.1 Implement tauri-plugin-updater
-- Generate signing keypair
-- Configure update manifest for GitHub Releases
-- Check frequency: Once per week on startup
-- User prompt: "Update available. Install on next restart?"
-- **Files**: 
-  - `src-tauri/Cargo.toml` - Add updater plugin
-  - `src-tauri/tauri.conf.json` - Updater config
-  - `src-tauri/src/main.rs` - Update check logic
-  - Frontend - Update notification UI
-- **Test**: Build older version → publish new release → verify update prompt appears
+**Goal**: Canvas editing improvements, file association, and support tooling.
 
 ---
 
-### Phase 2: Flatpak Distribution
-**Goal**: Linux distribution via Flatpak
+### Phase 1: Default Starting Canvas Size in Config - COMPLETE
+- Added `canvas.defaultWidth` and `canvas.defaultHeight` to `defaults.json`
+- CanvasManager reads from config instead of hardcoded 800x600
+- Fallback defaults in `config.js`
 
-#### 2.1 Create Flatpak manifest
-- Create `flatpak/org.ssce.desktop.yml` manifest
-- Configure sandbox permissions (file access, clipboard, tray)
-- Build and test locally
-- **Test**: Install via Flatpak → verify all features work (file dialogs, clipboard, tray)
+### Phase 2: Canvas Resize via Drag Handles - COMPLETE
+- 8 HTML drag handles (4 corners + 4 edges) on canvas wrapper
+- Dragging resizes canvas using existing `resize()` with anchor system
+- Preview outline during drag, minimum size enforced (100x100)
+- Handles visible when select tool is active
+- Undoable via `saveUndoState` before resize
+- **Files**: `src/js/utils/canvas-resize-handles.js` (new), `src/css/app.css`
 
----
+### Phase 3: Fill Tool - COMPLETE
+- New tool in "More Tools" dropdown (keyboard shortcut: F)
+- Detects largest contiguous transparent rectangle at click point
+- Click to preview, Ctrl+click or Enter to confirm fill
+- Creates a shape layer (undoable, editable)
+- **Files**: `src/js/tools/fill.js` (new), `src/js/utils/rect-detect.js` (new)
 
-### Phase 3: Browser Extension for Screenshot Series
-**Goal**: Streamlined screenshot capture workflow for documentation
+### Phase 4: Open with File Argument - COMPLETE
+- Rust captures CLI args in `setup()` hook, emits `open-file` event to frontend
+- Frontend listens for event, prompts to save unsaved changes, then opens file
+- Supports `Exec=ssce-desktop %f` in .desktop file for file association
+- Added `Emitter` trait import for Tauri event emission
+- **Known limitation**: Single-instance not supported (`tauri-plugin-single-instance` causes window control issues). Opening a file from file manager launches a new app instance if already in tray.
 
-#### 3.1 Research & Design
-- Evaluate browser extension architecture (Chrome/Firefox WebExtensions API)
-- Design communication protocol between extension and desktop app
-- Define .ssce file format extensions for external snapshot injection
+### Phase 5: About Dialog + Gear Dropdown - COMPLETE
+- Converted gear icon from single button to dropdown menu
+- Dropdown items: "Edit Settings" (existing), "About SSCE Desktop" (new)
+- About dialog shows: version, build date, platform, OS, kernel, monitor size, scale factor, WebView version, config paths
+- "Copy to Clipboard" button for support
+- Rust `get_system_info` command gathers platform/OS/monitor info
+- **Files**: `src/js/ui/dialogs/about-dialog.js` (new)
 
-#### 3.2 Implementation
-- Create browser extension with:
-  - Toolbar button to start/stop capture session
-  - Viewport/window/region capture modes
-  - Session management (multiple screenshots in sequence)
-  - Export to .ssce format with snapshots
-- Desktop app integration to open extension-generated .ssce files
-
-**Note**: This is a significant scope expansion requiring separate codebase. Evaluate feasibility after v1.3.0 stability proven.
+### Phase 6: Documentation & Release - COMPLETE
+- Version bump to 1.4.0
+- Moved future features to "Beyond 1.4.0" section
+- Updated CLAUDE.md with v1.4.0 features
 
 ---
 
@@ -884,6 +878,30 @@ convert /tmp/icon-16.png /tmp/icon-32.png src-tauri/icons/tray-icon.ico
 - Misleading "Can't detect any appindicator library" errors
 - Dock icon flickering on Ubuntu/GNOME
 
+## Beyond 1.4.0 (Future Consideration)
+
+### Auto-Updates (v2.0.0)
+- Implement `tauri-plugin-updater` for seamless update delivery via GitHub Releases
+- Generate signing keypair, configure update manifest
+- Check frequency: once per week on startup
+
+### Flatpak Distribution
+- Create Flatpak manifest for Linux distribution
+- Configure sandbox permissions (file access, clipboard, tray)
+
+### Browser Extension for Screenshot Series
+- Chrome/Firefox extension for streamlined screenshot capture workflow
+- Communication protocol between extension and desktop app
+- Session management, viewport/region capture modes
+- Significant scope expansion - evaluate feasibility separately
+
+### Native Menus (Optional)
+- Replace HTML dropdown menus with native OS menus
+
+### Single-Instance Support
+- Fix `tauri-plugin-single-instance` (currently causes window controls to stop working)
+- Enable passing file paths to existing running instance from file manager
+
 ## Resources
 
 - [Tauri v2 Docs](https://v2.tauri.app/)
@@ -892,5 +910,5 @@ convert /tmp/icon-16.png /tmp/icon-32.png src-tauri/icons/tray-icon.ico
 
 ---
 
-*Version: 1.3.0*
-*Last Updated: January 2026*
+*Version: 1.4.0*
+*Last Updated: February 2026*

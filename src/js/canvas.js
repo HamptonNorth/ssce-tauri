@@ -5,7 +5,7 @@
  * The canvas displays all layers composited together.
  */
 
-import { getDashGapMultiplier, getTextSize, getTextLineHeight } from "./utils/config.js";
+import { getDashGapMultiplier, getTextSize, getTextLineHeight, getDefaultCanvasSize } from "./utils/config.js";
 
 export class CanvasManager {
   /**
@@ -16,9 +16,10 @@ export class CanvasManager {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
 
-    // Default canvas size (will be updated when image loads)
-    this.width = 800;
-    this.height = 600;
+    // Default canvas size from config (will be updated when image loads)
+    const defaultSize = getDefaultCanvasSize();
+    this.width = defaultSize.width;
+    this.height = defaultSize.height;
 
     // Layer manager will be set after initialization
     this.layerManager = null;
@@ -60,6 +61,13 @@ export class CanvasManager {
     // Recalculate zoom when canvas size changes
     import("./utils/zoom.js").then((zoom) => {
       zoom.recalculateZoom();
+    });
+
+    // Reposition resize handles if they exist
+    import("./state.js").then(({ modules }) => {
+      if (modules.canvasResizeHandles?.visible) {
+        modules.canvasResizeHandles.positionHandles();
+      }
     });
   }
 
@@ -432,11 +440,13 @@ export class CanvasManager {
       }
     }
 
-    // Draw border
-    if (cornerRadius > 0) {
-      this.drawRoundedRect(x, y, width, height, cornerRadius, false, true);
-    } else {
-      this.ctx.strokeRect(x, y, width, height);
+    // Draw border (skip if borderWidth is 0)
+    if (borderWidth > 0) {
+      if (cornerRadius > 0) {
+        this.drawRoundedRect(x, y, width, height, cornerRadius, false, true);
+      } else {
+        this.ctx.strokeRect(x, y, width, height);
+      }
     }
 
     this.ctx.restore();

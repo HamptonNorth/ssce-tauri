@@ -19,6 +19,7 @@ import { SymbolsCard } from "./symbols-card.js";
 import { ShapeCard } from "./shape-card.js";
 import { HighlightCard } from "./highlight-card.js";
 import { BordersCard } from "./borders-card.js";
+import { FillCard } from "./fill-card.js";
 
 // Card registry - maps tool name to card class
 const cardRegistry = {
@@ -30,6 +31,7 @@ const cardRegistry = {
   shape: ShapeCard,
   highlight: HighlightCard,
   borders: BordersCard,
+  fill: FillCard,
 };
 
 // Tools that don't have property cards
@@ -121,9 +123,9 @@ export function showPropertyCard(toolName) {
   container.style.opacity = "1";
 
   // Recalculate zoom after card is shown (viewport space changed)
-  // Use autoFitIfNeeded=true to trigger fit mode if image now exceeds viewport
+  // Don't auto-switch to fit mode - only update if already in fit mode
   setTimeout(() => {
-    import("../../utils/zoom.js").then((zoom) => zoom.recalculateZoom(true));
+    import("../../utils/zoom.js").then((zoom) => zoom.recalculateZoom(false));
   }, 210); // After animation completes (200ms)
 }
 

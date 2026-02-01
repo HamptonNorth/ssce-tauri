@@ -18,7 +18,7 @@ import { checkContrastAndNotify } from "./utils/canvas-background.js";
 // ============================================================================
 
 /**
- * Create a new blank canvas (800x600 transparent)
+ * Create a new blank canvas (uses config default size, transparent)
  * Warns if there are unsaved changes
  * @param {Function} updateStatusBar - Callback to update status bar
  */
@@ -28,7 +28,7 @@ export async function newCanvas(updateStatusBar) {
     if (!confirmed) return;
   }
 
-  // Clear all layers and reset to 800x600
+  // Clear all layers and reset to config default size
   modules.layerManager.clear();
 
   // Clear filename state

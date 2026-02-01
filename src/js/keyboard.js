@@ -122,6 +122,7 @@ export function initKeyboardShortcuts(handlers) {
       if (e.key === "c" || e.key === "C") setActiveTool("combine");
       if (e.key === "r" || e.key === "R") setActiveTool("crop");
       if (e.key === "u" || e.key === "U") setActiveTool("cut");
+      if (e.key === "f" || e.key === "F") setActiveTool("fill");
     }
 
     // Escape to deselect tool (only if no dialog is open)

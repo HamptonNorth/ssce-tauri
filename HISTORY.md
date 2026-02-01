@@ -5,6 +5,65 @@ This document chronicles the development sessions for SSCE Desktop, the Tauri-wr
 
 ---
 
+## v1.4.0 Release (February 2026)
+
+### New Features
+
+#### Default Starting Canvas Size in Config
+- Canvas starting size is now configurable via `defaults.json` (`canvas.defaultWidth`, `canvas.defaultHeight`)
+- Previously hardcoded to 800x600
+
+#### Canvas Resize via Drag Handles
+- 8 drag handles (4 corners + 4 edges) appear around the canvas when the select tool is active
+- Drag any handle to resize the canvas interactively
+- Preview outline shown during drag
+- New area is transparent, existing content preserved via anchor system
+- Minimum canvas size enforced (100x100)
+- Fully undoable
+
+#### Fill Tool
+- New tool (shortcut: F) that fills transparent rectangular areas with the selected colour
+- Click on a transparent area to detect and preview the largest contiguous transparent rectangle
+- Ctrl+click or Enter to confirm fill (creates an editable shape layer)
+- Escape to cancel preview
+- Available in the "More Tools" dropdown
+
+#### Open with File Argument
+- App now supports `Exec=/usr/bin/ssce-desktop %f` for file association in .desktop files
+- CLI args are captured in the Rust setup hook and emitted to the frontend
+- Prompts to save unsaved changes before opening a new file
+- Known limitation: does not signal an existing tray instance (single-instance plugin disabled)
+
+#### About Dialog & Gear Dropdown
+- Gear icon converted to dropdown menu with "Edit Settings" and "About SSCE Desktop"
+- About dialog shows: app version, build date, platform, OS, architecture, monitor resolution, WebView info, config path, temp directory
+- "Copy to Clipboard" button for easy support reporting
+
+### Files Created
+- `src/js/utils/canvas-resize-handles.js` - Interactive resize handle system
+- `src/js/utils/rect-detect.js` - Transparent rectangle detection algorithm
+- `src/js/tools/fill.js` - Fill tool implementation
+- `src/js/ui/dialogs/about-dialog.js` - About dialog with system info
+- `tests/unit/config.test.js` - Config default tests
+- `tests/unit/canvas-resize.test.js` - Resize handle tests
+- `tests/unit/rect-detect.test.js` - Rectangle detection tests
+
+### Files Modified
+- `src/config/defaults.json`, `src/js/utils/config.js`, `src/js/canvas.js` - Default canvas size
+- `src/js/app.js` - Initialize new modules, open-file event listener
+- `src/js/ui/toolbar.js` - Fill tool and resize handles integration
+- `src/js/keyboard.js` - Fill tool shortcut
+- `src/index.html` - Fill tool button, gear dropdown, about dialog
+- `src/css/app.css` - Canvas wrapper overflow for handles
+- `src/js/ui/dialogs/settings-dialog.js` - Gear dropdown toggle
+- `src/js/ui/dialogs/index.js` - About dialog init
+- `src-tauri/src/main.rs` - CLI arg handling, get_system_info command
+- `src-tauri/Cargo.toml` - Version bump to 1.4.0
+- `src-tauri/tauri.conf.json` - Version bump to 1.4.0
+- `CLAUDE.md` - v1.4.0 plan and documentation updates
+
+---
+
 ## 1. Initial Project Setup
 
 ### Context:

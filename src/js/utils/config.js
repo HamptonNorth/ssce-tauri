@@ -339,6 +339,17 @@ export async function savePrintConfig(printSettings) {
 }
 
 /**
+ * Get default canvas size from config
+ * @returns {Object} Canvas size {width, height}
+ */
+export function getDefaultCanvasSize() {
+  return {
+    width: defaults?.canvas?.defaultWidth ?? 800,
+    height: defaults?.canvas?.defaultHeight ?? 600,
+  };
+}
+
+/**
  * Get smart guides configuration
  * @returns {Object} Smart guides config {enabled, snapThreshold, guideColor}
  */
@@ -443,6 +454,10 @@ function getFallbackDefaults() {
     },
     symbols: ["⛔", "🚫", "🔑", "🔒", "🔓", "❌", "✔", "🟢", "⚫"],
     steps: ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"],
+    canvas: {
+      defaultWidth: 800,
+      defaultHeight: 600,
+    },
     toast: {
       durationMs: 3000,
       errorDurationMs: 5000,
