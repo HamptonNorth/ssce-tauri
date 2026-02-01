@@ -36,7 +36,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, State,
+    Emitter, Manager, State,
 };
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
@@ -1511,6 +1511,30 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // Second instance launched - show existing window and pass file arg
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+
+            // If second instance was launched with a file argument, emit it
+            if args.len() > 1 {
+                let file_path = if args[1].starts_with("~") {
+                    if let Some(home) = dirs::home_dir() {
+                        args[1].replacen("~", &home.to_string_lossy().as_ref(), 1)
+                    } else {
+                        args[1].clone()
+                    }
+                } else {
+                    args[1].clone()
+                };
+                if std::path::Path::new(&file_path).exists() {
+                    let _ = app.emit("open-file", file_path);
+                }
+            }
+        }))
         .setup(|app| {
             // Set window icon
             if let Some(window) = app.get_webview_window("main") {

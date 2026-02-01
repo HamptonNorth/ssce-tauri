@@ -321,6 +321,31 @@ async function init() {
     } catch (err) {
       console.error("SSCE: Failed to check CLI file arg:", err);
     }
+
+    // Listen for file open events from single-instance plugin
+    // (when a second instance is launched with a file, it passes the path to the running instance)
+    if (window.__TAURI__?.event) {
+      window.__TAURI__.event.listen("open-file", async (event) => {
+        const filePath = event.payload;
+        if (!filePath) return;
+
+        console.log("SSCE: Open file event from second instance:", filePath);
+
+        if (state.hasUnsavedChanges) {
+          const { showConfirmModal } = await import("./ui/dialogs/alert-confirm.js");
+          const proceed = await showConfirmModal("Unsaved Changes", "You have unsaved changes. Opening a new file will discard them.\n\nContinue?", { confirmText: "Open File", cancelText: "Cancel", type: "warning" });
+          if (!proceed) return;
+        }
+
+        try {
+          const { loadFileFromPath } = await import("./file-operations.js");
+          await loadFileFromPath(filePath, updateStatusBar);
+        } catch (err) {
+          console.error("SSCE: Failed to open file from event:", err);
+          showToast(`Failed to open file: ${err.message || err}`, "error");
+        }
+      });
+    }
   }
 
   console.log("SSCE: Initialization complete");
