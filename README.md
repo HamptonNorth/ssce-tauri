@@ -21,6 +21,7 @@ A lightweight screen capture editor built as a native desktop application using 
 - **Steps** - Numbered circled digits for tutorials
 - **Symbols** - Insert emoji symbols with size scaling
 - **Highlight** - Semi-transparent overlays for emphasis
+- **Fill** - Fill transparent rectangular areas with selected colour (preview before confirm)
 - **Fade Edges** - Fade edges to transparent for seamless document embedding
 - **Borders** - Add borders with customizable width, colour, and corner radius
 - **Selection** - Move, resize, and edit existing annotations
@@ -70,16 +71,19 @@ Each tool displays a slide-down settings panel with tool-specific options:
 ### Image Operations
 - **Native file dialogs** - OS-native open/save dialogs
 - **Combine images** - Paste or drop a second image and position it
-- **Canvas resize** - Expand or shrink the canvas with anchor point selection
+- **Canvas resize** - Expand or shrink via drag handles (8 handles: corners + edges) or anchor point dialog
 - **Undo/Redo** - Full history via layer system
 - **Drag and drop** - Drop images directly onto the canvas
 - **Print** - A4 output with portrait/landscape selection
 
 ### Desktop Integration
 - **System tray** - App minimizes to tray when closed, click to restore
+- **Single instance** - Opening a file reuses the running instance instead of launching a new one
+- **Open with file** - Supports file association (`ssce-desktop /path/to/file.png`)
+- **About dialog** - System info with copy to clipboard (via gear dropdown menu)
 - **Loading spinner** - Visual feedback during file operations
 - **Native clipboard** - Copy/paste images to system clipboard
-- **Canvas background toggle** - Right-click background to switch light/dark for better contrast with dark images (v1.2.0)
+- **Canvas background toggle** - Right-click background to switch light/dark for better contrast with dark images
 
 ## Requirements
 
@@ -158,7 +162,7 @@ User customizations are saved to `~/.config/ssce-desktop/defaults.json` (Linux) 
 | Y | Symbols tool |
 | H | Highlight tool |
 | C | Combine tool |
-| F | Fade Edges tool |
+| F | Fill tool |
 | Escape | Deselect tool |
 | **Layer Operations** | |
 | Ctrl+Click | Add/remove layer from selection |
@@ -276,6 +280,8 @@ The Rust backend provides these commands callable from JavaScript:
 | `get_env_config` | Load build timestamp info |
 | `save_defaults_config` | Save user config to config directory |
 | `get_user_config_path` | Get path to user config file |
+| `get_cli_file_arg` | Get file path from CLI argument (if any) |
+| `get_system_info` | Get platform, OS, and version info |
 | **Autosave** | |
 | `save_autosave` | Save autosave data to temp file |
 | `delete_autosave` | Delete autosave temp file |

@@ -710,6 +710,7 @@ See the project README at https://github.com/HamptonNorth/ssce-tauri for build i
 ---
 
 **Version History:**
+- v1.4.0 (Feb 2026): Canvas resize handles, fill tool, about dialog, open with file arg, single-instance
 - v1.3.0 (Jan 2026): Bulk export & backup, print positioning, testing foundation, macOS build
 - v1.2.0 (Jan 2026): Library search with SQLite/FTS5, canvas background toggle, locale-aware dates
 - v1.0.0 (Jan 2026): Initial Tauri desktop release with native file dialogs
